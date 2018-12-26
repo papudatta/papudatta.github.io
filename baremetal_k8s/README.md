@@ -57,6 +57,7 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 | **service cidr** | 10.32.0.0/24 |
 
 I added a static route on the host iMac for service subnet 10.32.0.0/16
+
 ```sudo route add -net 10.32.0.0/24 192.168.1.112```
 
 
@@ -72,7 +73,7 @@ Start by downloading prebuilt `cfssl` packages
 
 **Generate Root CA**
 ```text
-  cat > ca-config.json <<EOF
+  $ cat > ca-config.json <<EOF
   {
     "signing": {
       "default": {
@@ -88,7 +89,7 @@ Start by downloading prebuilt `cfssl` packages
   }
   EOF
   
-  cat > ca-csr.json <<EOF
+  $ cat > ca-csr.json <<EOF
    {
      "CN": "Kubernetes",
      "key": {
@@ -106,12 +107,12 @@ Start by downloading prebuilt `cfssl` packages
    }
   EOF
   
-  cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+  $ cfssl gencert -initca ca-csr.json | cfssljson -bare ca
 ```
 
 **Create certificate for admin**
 ```text
-  cat > admin-csr.json <<EOF
+  $ cat > admin-csr.json <<EOF
   {
     "CN": "admin",
     "key": {
@@ -129,12 +130,12 @@ Start by downloading prebuilt `cfssl` packages
   }
   EOF
   
-  cfssl gencert \
-    -ca=ca.pem \
-    -ca-key=ca-key.pem \
-    -config=ca-config.json \
-    -profile=kubernetes \
-    admin-csr.json | cfssljson -bare admin
+  $ cfssl gencert \
+     -ca=ca.pem \
+     -ca-key=ca-key.pem \
+     -config=ca-config.json \
+     -profile=kubernetes \
+     admin-csr.json | cfssljson -bare admin
 ```
 
 **Create kubelet cerificates for worker nodes**
@@ -161,18 +162,18 @@ Start by downloading prebuilt `cfssl` packages
     IP=$(ping -c2 ${instance} | sed -nE 's/^PING[^(]+\(([^)]+)\).*/\1/p')
     
     cfssl gencert \
-      -ca=ca.pem \
-      -ca-key=ca-key.pem \
-      -config=ca-config.json \
-      -hostname=${instance},$IP \
-      -profile=kubernetes \
-      ${instance}-csr.json | cfssljson -bare ${instance}
+     -ca=ca.pem \
+     -ca-key=ca-key.pem \
+     -config=ca-config.json \
+     -hostname=${instance},$IP \
+     -profile=kubernetes \
+     ${instance}-csr.json | cfssljson -bare ${instance}
   done
 ```
 
 **Create kube-proxy cerificate**
 ```text
-  cat > kube-proxy-csr.json <<EOF
+  $ cat > kube-proxy-csr.json <<EOF
   {
     "CN": "system:kube-proxy",
     "key": {
@@ -190,12 +191,12 @@ Start by downloading prebuilt `cfssl` packages
   }
   EOF
   
-  cfssl gencert \
-    -ca=ca.pem \
-    -ca-key=ca-key.pem \
-    -config=ca-config.json \
-    -profile=kubernetes \
-    kube-proxy-csr.json | cfssljson -bare kube-proxy
+  $ cfssl gencert \
+     -ca=ca.pem \
+     -ca-key=ca-key.pem \
+     -config=ca-config.json \
+     -profile=kubernetes \
+     kube-proxy-csr.json | cfssljson -bare kube-proxy
 ```
 
 **Create api server cerificate**
@@ -221,13 +222,13 @@ Please note the SAN field containing master's IP, kubernetes api IP and name
   EOF
   
   
-  cfssl gencert \
-    -ca=ca.pem \
-    -ca-key=ca-key.pem \
-    -config=ca-config.json \
-    -hostname=192.168.1.111,10.32.0.1,127.0.0.1,kubernetes.default \
-    -profile=kubernetes \
-    kubernetes-csr.json | cfssljson -bare kubernetes
+  $ cfssl gencert \
+     -ca=ca.pem \
+     -ca-key=ca-key.pem \
+     -config=ca-config.json \
+     -hostname=192.168.1.111,10.32.0.1,127.0.0.1,kubernetes.default \
+     -profile=kubernetes \
+     kubernetes-csr.json | cfssljson -bare kubernetes
 ```
 
 **Distribute the certificates to worker nodes**
