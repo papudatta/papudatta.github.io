@@ -58,7 +58,7 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 
 I added a static route on the host iMac for service subnet 10.32.0.0/16
 
-```sudo route add -net 10.32.0.0/24 192.168.1.112```
+```$ sudo route add -net 10.32.0.0/24 192.168.1.112```
 
 
 ### - Prepare TLS certificates
@@ -239,8 +239,84 @@ Please note the SAN field containing master's IP, kubernetes api IP and name
 ```
 
 ### - Generate kubeconfig files
+**We will need kubelet**
+```bash
+  $ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubectl
+  $ chmod +x kubectl
+  $ sudo mv kubectl /usr/local/bin/kubectl
+```
 
+These config files are required by kubelet and kube-proxy clients running on worker nodes in order to authenticate to kubernetes api server running on master node. We'll also create the cluster and context.
+```text
+$ for instance in node1.home node2.home; do
+  kubectl config set-cluster kubernetes \
+    --certificate-authority=ca.pem \
+    --embed-certs=true \
+    --server=https://192.168.1.111:6443 \
+    --kubeconfig=${instance}.kubeconfig
 
+  kubectl config set-credentials system:node:${instance} \
+    --client-certificate=${instance}.pem \
+    --client-key=${instance}-key.pem \
+    --embed-certs=true \
+    --kubeconfig=${instance}.kubeconfig
+
+  kubectl config set-context default \
+    --cluster=kubernetes \
+    --user=system:node:${instance} \
+    --kubeconfig=${instance}.kubeconfig
+
+  kubectl config use-context default --kubeconfig=${instance}.kubeconfig
+done
+
+$ kubectl config set-cluster kubernetes \
+  --certificate-authority=ca.pem \
+  --embed-certs=true \
+  --server=https://192.168.1.111:6443 \
+  --kubeconfig=kube-proxy.kubeconfig
+
+$ kubectl config set-credentials kube-proxy \
+  --client-certificate=kube-proxy.pem \
+  --client-key=kube-proxy-key.pem \
+  --embed-certs=true \
+  --kubeconfig=kube-proxy.kubeconfig
+
+$ kubectl config set-context default \
+  --cluster=kubernetes \
+  --user=kube-proxy \
+  --kubeconfig=kube-proxy.kubeconfig
+
+$ kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+```
+
+**Distribute the config files**
+```text
+$ for instance in node1.home node2.home; do
+    scp ${instance}.kubeconfig kube-proxy.kubeconfig $instance:~/
+done
+```
+
+### - Generate data encryption config
+
+This is to secure the data stored in etcd key/value database. The `--experimental-encryption-provider-config` flag in `kube-api` service will use this config file.
+```text
+  $ ENCRYPTION_KEY=`head -c 32 /dev/urandom | base64`
+  $ cat > encryption-config.yaml <<EOF
+  kind: EncryptionConfig
+  apiVersion: v1
+  resources:
+    - resources:
+        - secrets
+      providers:
+        - aescbc:
+            keys:
+              - name: key
+                secret: ${ENCRYPTION_KEY}
+        - identity: {}
+  EOF
+```
+
+### - Prepare ETCD cluster
 
 
 
