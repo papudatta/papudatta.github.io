@@ -50,18 +50,18 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 **Subnets used**
 | Component | Subnet |
 | --- | --- |
-| **pod/cluster cidr**| 10.150.0.0/16 |
+| **pod/cluster cidr** | 10.150.0.0/16 |
 | **service clusters** | 10.32.0.0/24 |
 
 
 ### - Prepare TLS certificates
 
 Start by downloading prebuilt `cfssl` packages
-```shell
-  curl -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
-  curl -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
-  chmod +x cfssl cfssljson
-  sudo mv cfssl cfssljson /usr/local/bin/
+```text
+  $ curl -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+  $ curl -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+  $ chmod +x cfssl cfssljson
+  $ sudo mv cfssl cfssljson /usr/local/bin/
 ```
 
 **Generate Root CA**
