@@ -48,10 +48,11 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 | **coredns** | latest |
 
 **Subnets used**
+
 | Component | Subnet |
 | --- | --- |
-| pod cidr | 10.150.0.0/16 |
-| service cidr | 10.32.0.0/24 |
+| **pod/cluster cidr** | 10.150.0.0/16 |
+| **service cidr** | 10.32.0.0/24 |
 
 
 ### - Prepare TLS certificates
