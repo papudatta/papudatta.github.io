@@ -29,6 +29,8 @@ Click [View On Github](https://github.com/papudatta/papudatta.github.io) above t
 | **node1.home** | 192.168.1.112 | 3GiB | 20GiB |
 | **node2.home** | 192.168.1.113 | 3GiB | 20GiB |
 
+**Please change the hostname to the FQDN (like mynode.kube) in** `/etc/hostname` **and reboot**
+
 All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 
 **Component versions**
@@ -54,6 +56,9 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 | **pod/cluster cidr** | 10.150.0.0/16 |
 | **service cidr** | 10.32.0.0/24 |
 
+I added a static route on the host iMac for service subnet 10.32.0.0/16
+```sudo route add -net 10.32.0.0/24 192.168.1.112```
+
 
 ### - Prepare TLS certificates
 
@@ -66,6 +71,176 @@ Start by downloading prebuilt `cfssl` packages
 ```
 
 **Generate Root CA**
+```text
+  cat > ca-config.json <<EOF
+  {
+    "signing": {
+      "default": {
+        "expiry": "26280h"
+      },
+      "profiles": {
+        "kubernetes": {
+          "usages": ["signing", "key encipherment", "server auth", "client auth"],
+          "expiry": "26280h"
+        }
+      }
+    }
+  }
+  EOF
+  
+  cat > ca-csr.json <<EOF
+   {
+     "CN": "Kubernetes",
+     "key": {
+       "algo": "rsa",
+       "size": 2048
+     },
+     "names": [
+       {
+         "C": "IN",
+         "L": "BGLR",
+         "O": "Kubernetes",
+         "OU": "CKA"
+       }
+     ]
+   }
+  EOF
+  
+  cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+```
+
+**Create certificate for admin**
+```text
+  cat > admin-csr.json <<EOF
+  {
+    "CN": "admin",
+    "key": {
+      "algo": "rsa",
+      "size": 2048
+    },
+    "names": [
+      {
+        "C": "IN",
+        "L": "BGLR",
+        "O": "system:masters",
+        "OU": "CKA"
+      }
+    ]
+  }
+  EOF
+  
+  cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=kubernetes \
+    admin-csr.json | cfssljson -bare admin
+```
+
+**Create kubelet cerificates for worker nodes**
+```text
+  for instance in node1.home node2.home; do
+    cat > ${instance}-csr.json <<EOF
+    {
+      "CN": "system:node:${instance}",
+      "key": {
+        "algo": "rsa",
+        "size": 2048
+      },
+      "names": [
+        {
+          "C": "IN",
+          "L": "BGLR",
+          "O": "system:nodes",
+          "OU": "CKA"
+        }
+      ]
+    }
+    EOF
+    
+    IP=$(ping -c2 ${instance} | sed -nE 's/^PING[^(]+\(([^)]+)\).*/\1/p')
+    
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -hostname=${instance},$IP \
+      -profile=kubernetes \
+      ${instance}-csr.json | cfssljson -bare ${instance}
+  done
+```
+
+**Create kube-proxy cerificate**
+```text
+  cat > kube-proxy-csr.json <<EOF
+  {
+    "CN": "system:kube-proxy",
+    "key": {
+      "algo": "rsa",
+      "size": 2048
+    },
+    "names": [
+      {
+        "C": "IN",
+        "L": "BGLR",
+        "O": "system:node-proxier",
+        "OU": "CKA"
+      }
+    ]
+  }
+  EOF
+  
+  cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=kubernetes \
+    kube-proxy-csr.json | cfssljson -bare kube-proxy
+```
+
+**Create api server cerificate**
+
+Please note the SAN field containing master's IP, kubernetes api IP and name
+```text
+  cat > kubernetes-csr.json <<EOF
+  {
+    "CN": "kubernetes",
+    "key": {
+      "algo": "rsa",
+      "size": 2048
+    },
+    "names": [
+      {
+        "C": "IN",
+        "L": "BGLR",
+        "O": "Kubernetes",
+        "OU": "CKA"
+      }
+    ]
+  }
+  EOF
+  
+  
+  cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -hostname=192.168.1.111,10.32.0.1,127.0.0.1,kubernetes.default \
+    -profile=kubernetes \
+    kubernetes-csr.json | cfssljson -bare kubernetes
+```
+
+**Distribute the certificates to worker nodes**
+```text
+  for instance in node1.home node2.home; do
+    scp ca.pem ${instance}-key.pem ${instance}.pem $instance:~/
+  done
+```
+
+### - Generate kubeconfig files
+
+
+
 
 
 ### Jekyll Themes1
