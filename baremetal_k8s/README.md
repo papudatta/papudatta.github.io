@@ -746,13 +746,50 @@ $ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl vers
 
 **Wait till the pods are created**
 ```text
-$ kubectl get pod --namespace=kube-system -l name=weave-net -o wide
+  $ kubectl get pod --namespace=kube-system -l name=weave-net -o wide
+  NAME              READY     STATUS    RESTARTS   AGE       IP              NODE
+  weave-net-7kswf   2/2       Running   0          8m        192.168.1.112   node1.home
+  weave-net-jx68d   2/2       Running   0          8m        192.168.1.113   node2.home
 ```
 
 ### - Configure DNS
 
-**We'll use coredns and apply the yaml config here as well**
+**We'll use coredns and apply the yaml config here as well. First download the yaml and edit the IP**
 ```text
-
+  $ wget https://raw.githubusercontent.com/mch1307/k8s-thw/master/coredns.yaml
 ```
+
+Edited the IP in respective sections, as shown in below snippet:
+```text
+   ...
+   Corefile: |
+       .:53 {
+           errors
+           health
+           kubernetes cluster.local 10.32.0.0/24 { 
+             pods insecure
+             upstream
+             fallthrough in-addr.arpa ip6.arpa
+           }
+   ...
+   ...
+   spec:
+     selector:
+       k8s-app: coredns
+     clusterIP: 10.32.0.10 
+   ...
+```
+
+**Apply the yaml file**
+```text
+$ kubectl apply -f coredns.yaml
+
+$ kubectl get pod -n kube-system -o wide
+NAME                       READY     STATUS    RESTARTS   AGE       IP              NODE
+coredns-5f7d467445-5xj24   1/1       Running   0          56s       10.150.128.1    node2.home
+coredns-5f7d467445-gnmfd   1/1       Running   0          56s       10.150.0.2      node1.home
+weave-net-7kswf            2/2       Running   0          10m       192.168.1.112   node1.home
+weave-net-jx68d            2/2       Running   0          10m       192.168.1.113   node2.home
+```
+
 
