@@ -1,12 +1,10 @@
-## Environment used in this procedure
+## Environment used
 
-```markdown
 | Hostname | IP Address | Memory | Disk space |
 | --- | --- | --- | --- |
 | **master.home** | 192.168.1.111 | 4GiB | 15GiB |
 | **node1.home** | 192.168.1.112 | 3GiB | 20GiB |
 | **node2.home** | 192.168.1.113 | 3GiB | 20GiB |
-```
 
 ### Markdown1
 
