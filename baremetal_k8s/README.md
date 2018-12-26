@@ -792,4 +792,41 @@ weave-net-7kswf            2/2       Running   0          10m       192.168.1.11
 weave-net-jx68d            2/2       Running   0          10m       192.168.1.113   node2.home
 ```
 
+### - Verify DNS
+```text
+  $ kubectl run -it --rm --restart=Never --image=infoblox/dnstools:latest dnstools
+  If you don't see a command prompt, try pressing enter.
+  dnstools# host kubernetes
+  kubernetes.default.svc.cluster.local has address 10.32.0.1
+  dnstools# host kube-dns.kube-system
+  kube-dns.kube-system.svc.cluster.local has address 10.32.0.10
+  dnstools# host 10.32.0.10
+  10.0.32.10.in-addr.arpa domain name pointer kube-dns.kube-system.svc.cluster.local.
+  dnstools# exit
+  pod "dnstools" deleted
+```
 
+### - Setup nginx ingress
+```text
+  $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+  $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/  service-nodeport.yaml
+
+  $ kubectl get svc --all-namespaces 
+  NAMESPACE       NAME            TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                      AGE
+  default         kubernetes      ClusterIP   10.32.0.1    <none>        443/TCP                      54m
+  ingress-nginx   ingress-nginx   NodePort    10.32.0.34   <none>        80:32106/TCP,443:30158/TCP   1m
+  kube-system     kube-dns        ClusterIP   10.32.0.10   <none>        53/UDP,53/TCP                5m
+
+  $ kubectl get deployment --all-namespaces 
+  NAMESPACE       NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+  ingress-nginx   nginx-ingress-controller   1         1         1            1           2m
+  kube-system     coredns                    2         2         2            2           6m
+  
+  $ kubectl get pods --all-namespaces -o wide
+  NAMESPACE       NAME                                       READY     STATUS    RESTARTS   AGE       IP              NODE
+  ingress-nginx   nginx-ingress-controller-87554c57b-tpfd2   1/1       Running   0          2m        10.150.0.3      node1.home
+  kube-system     coredns-5f7d467445-5xj24                   1/1       Running   0          6m        10.150.128.1    node2.home
+  kube-system     coredns-5f7d467445-gnmfd                   1/1       Running   0          6m        10.150.0.2      node1.home
+  kube-system     weave-net-7kswf                            2/2       Running   0          16m       192.168.1.112   node1.home
+  kube-system     weave-net-jx68d                            2/2       Running   0          16m       192.168.1.113   node2.home
+```
