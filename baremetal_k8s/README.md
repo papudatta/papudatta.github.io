@@ -63,7 +63,7 @@ I added a static route on the host iMac for service subnet 10.32.0.0/16
 ```$ sudo route add -net 10.32.0.0/24 192.168.1.112```
 
 
-### - Prepare TLS certificates
+### Prepare TLS certificates
 
 Start by downloading prebuilt `cfssl` packages
 ```text
@@ -240,7 +240,7 @@ Please note the SAN field containing master's IP, kubernetes api IP and name
   done
 ```
 
-### - Generate kubeconfig files
+### Generate kubeconfig files
 **We will need kubelet**
 ```bash
   $ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubectl
@@ -298,7 +298,7 @@ $ for instance in node1.home node2.home; do
 done
 ```
 
-### - Data encryption config
+### Data encryption config
 
 This is to secure the data stored in etcd key/value database. The `--experimental-encryption-provider-config` flag in `kube-api` service will use this config file.
 ```text
@@ -318,7 +318,7 @@ This is to secure the data stored in etcd key/value database. The `--experimenta
   EOF
 ```
 
-### - Prepare ETCD cluster
+### Prepare ETCD cluster
 
 **Download etcd, move the executables and copy required certs.**
 ```text
@@ -387,7 +387,7 @@ sudo systemctl start etcd
     --key=/etc/etcd/kubernetes-key.pem
 ```
 
-### - Prepare the master node
+### Prepare the master node
 
 **Install kube-apiserver, kube-controller-manager and kube-scheduler binaries**
 ```text
@@ -566,7 +566,7 @@ sudo systemctl start etcd
   }
 ```
 
-### - Prepare the 2 nodes
+### Prepare the 2 nodes
 
 **Disable swap, enable ip forwarding, disable firewall, install, install socat and conntrack on all nodes**
 ```text
@@ -719,7 +719,7 @@ EOF
   $ sudo chown -R $(whoami):$(whoami) /var/run/containerd/runc
 ```
 
-### - Generate kubectl config
+### Generate kubectl config
 
 **we are back in master.node**
 ```text
@@ -739,7 +739,7 @@ EOF
   $ kubectl config use-context kubernetes
 ```
 
-### - Configure networking
+### Configure networking
 
 **We'll use weave net and apply the yaml config**
 ```text
@@ -754,7 +754,7 @@ $ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl vers
   weave-net-jx68d   2/2       Running   0          8m        192.168.1.113   node2.home
 ```
 
-### - Configure DNS
+### Configure DNS
 
 **We'll use coredns and apply the yaml config here as well. First download the yaml and edit the IP**
 ```text
@@ -794,7 +794,7 @@ weave-net-7kswf            2/2       Running   0          10m       192.168.1.11
 weave-net-jx68d            2/2       Running   0          10m       192.168.1.113   node2.home
 ```
 
-### - Verify DNS
+### Verify DNS
 ```text
   $ kubectl run -it --rm --restart=Never --image=infoblox/dnstools:latest dnstools
   If you don't see a command prompt, try pressing enter.
@@ -808,7 +808,7 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
   pod "dnstools" deleted
 ```
 
-### - Setup nginx ingress
+### Setup nginx ingress
 ```text
   $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
   $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/  service-nodeport.yaml
