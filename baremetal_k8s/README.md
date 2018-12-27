@@ -722,7 +722,7 @@ EOF
 
 ### Generate kubectl config
 
-**we are back in master.node**
+**We are back in master.node**
 ```console
   $ kubectl config set-cluster kubernetes \
     --certificate-authority=ca.pem \
@@ -742,7 +742,7 @@ EOF
 
 ### Configure networking
 
-**We'll use weave net and apply the yaml config**
+**We'll use weave-net and apply the yaml config**
 ```console
 $ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')&env.IPALLOC_RANGE=10.150.0.0/16"
 ```
