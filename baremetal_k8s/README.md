@@ -1,12 +1,14 @@
 ## Introduction
 
-Hello! My goal is to outline the detailed steps i followed in bringing up a kubernetes cluster on "bare-metal" Ubuntu VMs. All this was inspired by the exellent tutorials in [kubernetes_the_hard_way](https://github.com/kelseyhightower/kubernetes-the-hard-way) and [Michael Champagne's blog](https://blog.csnet.me/)
+Hello! My goal is to outline the detailed steps I followed in bringing up a kubernetes cluster on "bare-metal" Ubuntu VMs. All this was inspired by the exellent tutorials in [kubernetes_the_hard_way](https://github.com/kelseyhightower/kubernetes-the-hard-way) and [Michael Champagne's blog](https://blog.csnet.me/)
 
 Click [View On Github](https://github.com/papudatta/papudatta.github.io) above to report any issues with this procedure.
 
+
+
 ### Summary of contents
 
-* Details of the environment followed by component verions
+* Details of the environment - OS, component versions, subnets used, etc
 * Prepare TLS certificates
 * Generate kubeconfig files
 * Data encryption config
@@ -35,7 +37,7 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 
 **Component versions**
 
-| Hostname | Version |
+| Component | Version |
 | --- | --- |
 | **kubectl** | 1.11.1 |
 | **kubelet** | 1.11.1 |
@@ -138,7 +140,7 @@ Start by downloading prebuilt `cfssl` packages
      admin-csr.json | cfssljson -bare admin
 ```
 
-**Create kubelet cerificates for worker nodes**
+**Create kubelet certificates for worker nodes**
 ```text
   for instance in node1.home node2.home; do
     cat > ${instance}-csr.json <<EOF
@@ -171,7 +173,7 @@ Start by downloading prebuilt `cfssl` packages
   done
 ```
 
-**Create kube-proxy cerificate**
+**Create kube-proxy certificate**
 ```text
   $ cat > kube-proxy-csr.json <<EOF
   {
@@ -199,7 +201,7 @@ Start by downloading prebuilt `cfssl` packages
      kube-proxy-csr.json | cfssljson -bare kube-proxy
 ```
 
-**Create api server cerificate**
+**Create api server certificate**
 
 Please note the SAN field containing master's IP, kubernetes api IP and name
 ```text
