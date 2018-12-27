@@ -47,7 +47,6 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 | **CNI plugins** | 0.7.1 |
 | **containerd** | 1.1.5 |
 | **runc** | 1.0 rc6 |
-| **containerd** | 1.1.5 |
 | **crictl** | 1.11.1 |
 | **weave net** | 2.5 |
 | **coredns** | latest |
