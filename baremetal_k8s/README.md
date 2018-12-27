@@ -20,6 +20,7 @@ Click [View On Github](https://github.com/papudatta/papudatta.github.io) above t
 * Configure DNS
 * Verify DNS
 * Setup nginx ingress
+* Setup rook for persistent storage requirements
 
 ### Environment
 
@@ -831,4 +832,47 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
   kube-system     coredns-5f7d467445-gnmfd                   1/1       Running   0          6m        10.150.0.2      node1.home
   kube-system     weave-net-7kswf                            2/2       Running   0          16m       192.168.1.112   node1.home
   kube-system     weave-net-jx68d                            2/2       Running   0          16m       192.168.1.113   node2.home
+```
+
+### Setup rook for persistent volume requirements
+
+```console
+$ git clone https://github.com/rook/rook
+$ cd rook/cluster/examples/kubernetes/ceph
+$ git checkout remotes/origin/release-0.9
+$ git branch -a
+
+$ kubectl create -f operator.yaml
+$ kubectl get pods -n rook-ceph-system
+
+$ kubectl get pods -n rook-ceph-system -o wide
+NAME                                  READY     STATUS    RESTARTS   AGE       IP              NODE
+rook-ceph-agent-qjhbz                 1/1       Running   0          2m        192.168.1.113   node2.home
+rook-ceph-agent-vr8n5                 1/1       Running   0          2m        192.168.1.112   node1.home
+rook-ceph-operator-64454f9bf5-rzrrt   1/1       Running   0          5m        10.150.128.2    node2.home
+rook-discover-s6r2h                   1/1       Running   0          2m        10.150.128.3    node2.home
+rook-discover-x49k6                   1/1       Running   0          2m        10.150.0.4      node1.home
+
+$ kubectl create -f cluster.yaml
+
+$ kubectl get pods -n rook-ceph -o wide
+NAME                                     READY     STATUS      RESTARTS   AGE       IP             NODE
+rook-ceph-mgr-a-55bb9c6474-rsjhd         1/1       Running     0          42s       10.150.128.5   node2.home
+rook-ceph-mon-a-55587db7d5-ttcgt         1/1       Running     0          2m        10.150.0.6     node1.home
+rook-ceph-mon-b-c856d479d-5n9t8          1/1       Running     0          1m        10.150.128.4   node2.home
+rook-ceph-osd-0-5bb87d785-wwq4c          1/1       Running     0          15s       10.150.0.7     node1.home
+rook-ceph-osd-1-d66cc6fd-xlppl           1/1       Running     0          13s       10.150.128.7   node2.home
+rook-ceph-osd-prepare-node1.home-2h9h4   0/2       Completed   1          24s       10.150.0.5     node1.home
+rook-ceph-osd-prepare-node2.home-d698s   0/2       Completed   1          24s       10.150.128.6   node2.home
+
+$ kubectl create -f storageclass.yaml
+```
+
+** We'll make this storage class the default one
+```console
+$ kubectl patch storageclass rook-ceph-block -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+$ kubectl get sc
+NAME                        PROVISIONER          AGE
+rook-ceph-block (default)   ceph.rook.io/block   1m
 ```
