@@ -867,7 +867,7 @@ rook-ceph-osd-prepare-node2.home-d698s   0/2       Completed   1          24s   
 $ kubectl create -f storageclass.yaml
 ```
 
-**We'll make this storage class the default one
+**We'll make this storage class the default one**
 ```bash
 $ kubectl patch storageclass rook-ceph-block -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
