@@ -66,7 +66,7 @@ I added a static route on the host iMac for service subnet 10.32.0.0/16
 ### Prepare TLS certificates
 
 Start by downloading prebuilt `cfssl` packages
-```text
+```console
   $ curl -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
   $ curl -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
   $ chmod +x cfssl cfssljson
@@ -74,7 +74,7 @@ Start by downloading prebuilt `cfssl` packages
 ```
 
 **Generate Root CA**
-```text
+```console
   $ cat > ca-config.json <<EOF
   {
     "signing": {
@@ -113,7 +113,7 @@ Start by downloading prebuilt `cfssl` packages
 ```
 
 **Create certificate for admin**
-```text
+```console
   $ cat > admin-csr.json <<EOF
   {
     "CN": "admin",
@@ -141,7 +141,7 @@ Start by downloading prebuilt `cfssl` packages
 ```
 
 **Create kubelet certificates for worker nodes**
-```text
+```console
   for instance in node1.home node2.home; do
     cat > ${instance}-csr.json <<EOF
     {
@@ -174,7 +174,7 @@ Start by downloading prebuilt `cfssl` packages
 ```
 
 **Create kube-proxy certificate**
-```text
+```console
   $ cat > kube-proxy-csr.json <<EOF
   {
     "CN": "system:kube-proxy",
@@ -204,7 +204,7 @@ Start by downloading prebuilt `cfssl` packages
 **Create api server certificate**
 
 Please note the SAN field containing master's IP, kubernetes api IP and name
-```text
+```console
   cat > kubernetes-csr.json <<EOF
   {
     "CN": "kubernetes",
@@ -234,7 +234,7 @@ Please note the SAN field containing master's IP, kubernetes api IP and name
 ```
 
 **Distribute the certificates to worker nodes**
-```text
+```console
   for instance in node1.home node2.home; do
     scp ca.pem ${instance}-key.pem ${instance}.pem $instance:~/
   done
@@ -249,7 +249,7 @@ Please note the SAN field containing master's IP, kubernetes api IP and name
 ```
 
 These config files are required by kubelet and kube-proxy clients running on worker nodes in order to authenticate to kubernetes api server running on master node. We'll also create the cluster and context.
-```text
+```console
 $ for instance in node1.home node2.home; do
   kubectl config set-cluster kubernetes \
     --certificate-authority=ca.pem \
@@ -292,7 +292,7 @@ $ kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
 ```
 
 **Distribute the config files**
-```text
+```console
 $ for instance in node1.home node2.home; do
     scp ${instance}.kubeconfig kube-proxy.kubeconfig $instance:~/
 done
@@ -301,7 +301,7 @@ done
 ### Data encryption config
 
 This is to secure the data stored in etcd key/value database. The `--experimental-encryption-provider-config` flag in `kube-api` service will use this config file.
-```text
+```console
   $ ENCRYPTION_KEY=`head -c 32 /dev/urandom | base64`
   $ cat > encryption-config.yaml <<EOF
   kind: EncryptionConfig
@@ -321,7 +321,7 @@ This is to secure the data stored in etcd key/value database. The `--experimenta
 ### Prepare ETCD cluster
 
 **Download etcd, move the executables and copy required certs.**
-```text
+```console
   $ wget -q --show-progress --https-only --timestamping \
       "https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz"
   
@@ -333,7 +333,7 @@ This is to secure the data stored in etcd key/value database. The `--experimenta
 ```
 
 **Create service file for etcd**
-```text
+```console
   $ ETCD_NAME=`hostname -f`
   $ cat << EOF | sudo tee /etc/systemd/system/etcd.service
   [Unit]
@@ -368,14 +368,14 @@ This is to secure the data stored in etcd key/value database. The `--experimenta
 ```
 
 **Start the etc service**
-```text
+```console
 sudo systemctl daemon-reload
 sudo systemctl enable etcd
 sudo systemctl start etcd
 ```
 
 **Verify etcd operation**
-```text
+```console
   $ export ETCDCTL_CACERT=/etc/etcd/ca.pem
   $ export ETCDCTL_CERT=/etc/etcd/kubernetes.pem
   $ export ETCDCTL_KEY=/etc/etcd/kubernetes-key.pem
@@ -390,7 +390,7 @@ sudo systemctl start etcd
 ### Prepare the master node
 
 **Install kube-apiserver, kube-controller-manager and kube-scheduler binaries**
-```text
+```console
   $ wget -q --show-progress --https-only --timestamping \
     "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-apiserver" \
     "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/  amd64/kube-controller-manager" \
@@ -403,7 +403,7 @@ sudo systemctl start etcd
 ```
 
 **Create service files for above components**
-```text
+```console
   $ cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
   [Unit]
   Description=Kubernetes API Server
@@ -492,7 +492,7 @@ sudo systemctl start etcd
 ```
 
 **Start the above services and verify if they were started**
-```text
+```console
   $ sudo systemctl daemon-reload
   $ sudo systemctl enable kube-apiserver kube-controller-manager kube-scheduler
   $ sudo systemctl start kube-apiserver kube-controller-manager kube-scheduler
@@ -500,7 +500,7 @@ sudo systemctl start etcd
 ```
 
 **Check component statuses**
-```text
+```console
   $ kubectl get componentstatuses
   NAME                 STATUS    MESSAGE             ERROR
   controller-manager   Healthy   ok                  
@@ -509,7 +509,7 @@ sudo systemctl start etcd
 ```
 
 **Configure RBAC so that kubelet can authorize the api server**
-```text
+```console
   $ cat <<EOF | kubectl apply -f -
   apiVersion: rbac.authorization.k8s.io/v1beta1
   kind: ClusterRole
@@ -551,7 +551,7 @@ sudo systemctl start etcd
 ```
 
 **Verify api server access**
-```text
+```console
   $ curl -k https://192.168.1.111:6443/version
   {
     "major": "1",
@@ -569,7 +569,7 @@ sudo systemctl start etcd
 ### Prepare the 2 nodes
 
 **Disable swap, enable ip forwarding, disable firewall, install, install socat and conntrack on all nodes**
-```text
+```console
   $ sudo apt install socat conntrack
   =====> Add net.ipv4.ip_forward=1  to  /etc/sysctl.conf
   $ sudo sysctl -p /etc/sysctl.conf
@@ -578,7 +578,7 @@ sudo systemctl start etcd
 ```
 
 **Install CNI plugins, containerd and runc**
-```text
+```console
   $ wget -q --show-progress --https-only --timestamping \
       "https://github.com/containernetworking/plugins/releases/download/  v0.7.1/cni-plugins-amd64-v0.7.1.tgz" \
       "https://github.com/containerd/containerd/releases/download/  v1.1.5/containerd-1.1.5.linux-amd64.tar.gz" \
@@ -592,7 +592,7 @@ sudo systemctl start etcd
 ```
 
 **Create systemd unit file for containerd**
-```text
+```console
 cat << EOF | sudo tee /etc/systemd/system/containerd.service
 [Unit]
 Description=containerd container runtime
@@ -619,7 +619,7 @@ EOF
 ```
 
 **Download and configure crictl for interacting with container runtime**
-```text
+```console
   $ wget -q --show-progress --https-only --timestamping \
     https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.11.1/crictl-v1.11.1-linux-amd64.tar.gz
   $ tar xvf crictl-v1.11.1-linux-amd64.tar.gz
@@ -632,7 +632,7 @@ EOF
 ```
 
 **Install kubernetes binaries**
-```text
+```console
   $ wget -q --show-progress --https-only --timestamping \
      https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-proxy \
      https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubelet
@@ -650,7 +650,7 @@ EOF
 ```
 
 **Create systemd unit files for above**
-```text
+```console
   $ cat << EOF | sudo tee /etc/systemd/system/kubelet.service
   [Unit]
   Description=Kubernetes Kubelet
@@ -705,7 +705,7 @@ EOF
 ```
 
 **Start and verify the above services**
-```text
+```console
   $ sudo systemctl daemon-reload
   $ sudo systemctl enable containerd kubelet kube-proxy
   $ sudo systemctl start containerd kubelet kube-proxy
@@ -713,7 +713,7 @@ EOF
 ```
 
 **I had to change containerd component ownerships. Gathering more details on this meanwhile**
-```text
+```console
   $ sudo chown $(whoami):$(whoami) /run/containerd/containerd.sock
   $ sudo chown -R $(whoami):$(whoami) /var/run/containerd/io.containerd.runtime.v1.linux
   $ sudo chown -R $(whoami):$(whoami) /var/run/containerd/runc
@@ -722,7 +722,7 @@ EOF
 ### Generate kubectl config
 
 **we are back in master.node**
-```text
+```console
   $ kubectl config set-cluster kubernetes \
     --certificate-authority=ca.pem \
     --embed-certs=true \
@@ -742,12 +742,12 @@ EOF
 ### Configure networking
 
 **We'll use weave net and apply the yaml config**
-```text
+```console
 $ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')&env.IPALLOC_RANGE=10.150.0.0/16"
 ```
 
 **Wait till the pods are created**
-```text
+```console
   $ kubectl get pod --namespace=kube-system -l name=weave-net -o wide
   NAME              READY     STATUS    RESTARTS   AGE       IP              NODE
   weave-net-7kswf   2/2       Running   0          8m        192.168.1.112   node1.home
@@ -757,12 +757,12 @@ $ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl vers
 ### Configure DNS
 
 **We'll use coredns and apply the yaml config here as well. First download the yaml and edit the IP**
-```text
+```console
   $ wget https://raw.githubusercontent.com/mch1307/k8s-thw/master/coredns.yaml
 ```
 
 Edited the IP in respective sections, as shown in below snippet:
-```text
+```console
    ...
    Corefile: |
        .:53 {
@@ -783,7 +783,7 @@ Edited the IP in respective sections, as shown in below snippet:
 ```
 
 **Apply the yaml file**
-```text
+```console
 $ kubectl apply -f coredns.yaml
 
 $ kubectl get pod -n kube-system -o wide
@@ -795,7 +795,7 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
 ```
 
 ### Verify DNS
-```text
+```console
   $ kubectl run -it --rm --restart=Never --image=infoblox/dnstools:latest dnstools
   If you don't see a command prompt, try pressing enter.
   dnstools# host kubernetes
@@ -809,7 +809,7 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
 ```
 
 ### Setup nginx ingress
-```text
+```console
   $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
   $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/  service-nodeport.yaml
 
