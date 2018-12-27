@@ -242,7 +242,7 @@ Please note the SAN field containing master's IP, kubernetes api IP and name
 
 ### Generate kubeconfig files
 **We will need kubelet**
-```bash
+```console
   $ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubectl
   $ chmod +x kubectl
   $ sudo mv kubectl /usr/local/bin/kubectl
