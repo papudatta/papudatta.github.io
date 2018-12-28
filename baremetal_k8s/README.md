@@ -62,6 +62,13 @@ I added a static route on the host iMac for service subnet 10.32.0.0/16
 
 ```$ sudo route add -net 10.32.0.0/24 192.168.1.112```
 
+**master.home can log into both worker nodes using public key authentication**
+```bash
+$ ssh-keygen
+$ ssh-copy-id node1.home
+$ ssh-copy-id node2.home
+```
+
 
 ### Prepare TLS certificates
 
