@@ -568,7 +568,7 @@ sudo systemctl start etcd
 
 ### Prepare the 2 nodes
 
-**Disable swap, enable ip forwarding, disable firewall, install, install socat and conntrack on all nodes**
+**Disable swap, enable ip forwarding, disable firewall and install socat, conntrack on the 2 worker nodes**
 ```bash
   $ sudo apt install socat conntrack
   =====> Add net.ipv4.ip_forward=1  to  /etc/sysctl.conf
