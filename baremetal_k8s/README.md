@@ -393,7 +393,7 @@ sudo systemctl start etcd
 ```bash
   $ wget -q --show-progress --https-only --timestamping \
     "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-apiserver" \
-    "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/  amd64/kube-controller-manager" \
+    "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-controller-manager" \
     "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-scheduler"
 
   $ chmod +x kube-apiserver kube-controller-manager kube-scheduler
@@ -580,8 +580,8 @@ sudo systemctl start etcd
 **Install CNI plugins, containerd and runc**
 ```bash
   $ wget -q --show-progress --https-only --timestamping \
-      "https://github.com/containernetworking/plugins/releases/download/  v0.7.1/cni-plugins-amd64-v0.7.1.tgz" \
-      "https://github.com/containerd/containerd/releases/download/  v1.1.5/containerd-1.1.5.linux-amd64.tar.gz" \
+      "https://github.com/containernetworking/plugins/releases/download/v0.7.1/cni-plugins-amd64-v0.7.1.tgz" \
+      "https://github.com/containerd/containerd/releases/download/v1.1.5/containerd-1.1.5.linux-amd64.tar.gz" \
       "https://github.com/opencontainers/runc/releases/download/v1.0.0-rc6/runc.amd64"
 
   $ sudo tar xvf cni-plugins-amd64-v0.7.1.tgz -C /opt/cni/bin
@@ -811,7 +811,7 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
 ### Setup nginx ingress
 ```bash
   $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
-  $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/  service-nodeport.yaml
+  $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
 
   $ kubectl get svc --all-namespaces 
   NAMESPACE       NAME            TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                      AGE
