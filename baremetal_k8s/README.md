@@ -96,7 +96,7 @@ Start by downloading prebuilt `cfssl` packages
       }
     }
   }
-  EOF
+EOF
   
   $ cat > ca-csr.json <<EOF
    {
@@ -114,7 +114,7 @@ Start by downloading prebuilt `cfssl` packages
        }
      ]
    }
-  EOF
+EOF
   
   $ cfssl gencert -initca ca-csr.json | cfssljson -bare ca
 ```
@@ -137,7 +137,7 @@ Start by downloading prebuilt `cfssl` packages
       }
     ]
   }
-  EOF
+EOF
   
   $ cfssl gencert \
      -ca=ca.pem \
@@ -149,7 +149,7 @@ Start by downloading prebuilt `cfssl` packages
 
 **Create kubelet certificates for worker nodes**
 ```bash
-  for instance in node1.home node2.home; do
+  $ for instance in node1.home node2.home; do
     cat > ${instance}-csr.json <<EOF
     {
       "CN": "system:node:${instance}",
@@ -166,7 +166,7 @@ Start by downloading prebuilt `cfssl` packages
         }
       ]
     }
-    EOF
+EOF
     
     IP=$(ping -c2 ${instance} | sed -nE 's/^PING[^(]+\(([^)]+)\).*/\1/p')
     
@@ -198,7 +198,7 @@ Start by downloading prebuilt `cfssl` packages
       }
     ]
   }
-  EOF
+EOF
   
   $ cfssl gencert \
      -ca=ca.pem \
@@ -212,7 +212,7 @@ Start by downloading prebuilt `cfssl` packages
 
 Please note the SAN field containing master's IP, kubernetes api IP and name
 ```bash
-  cat > kubernetes-csr.json <<EOF
+  $ cat > kubernetes-csr.json <<EOF
   {
     "CN": "kubernetes",
     "key": {
@@ -228,7 +228,7 @@ Please note the SAN field containing master's IP, kubernetes api IP and name
       }
     ]
   }
-  EOF
+EOF
   
   
   $ cfssl gencert \
@@ -322,7 +322,7 @@ This is to secure the data stored in etcd key/value database. The `--experimenta
               - name: key
                 secret: ${ENCRYPTION_KEY}
         - identity: {}
-  EOF
+EOF
 ```
 
 ### Prepare ETCD cluster
@@ -371,14 +371,14 @@ This is to secure the data stored in etcd key/value database. The `--experimenta
   
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
 ```
 
 **Start the etc service**
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable etcd
-sudo systemctl start etcd
+  $ sudo systemctl daemon-reload
+  $ sudo systemctl enable etcd
+  $ sudo systemctl start etcd
 ```
 
 **Verify etcd operation**
@@ -406,7 +406,7 @@ sudo systemctl start etcd
   $ chmod +x kube-apiserver kube-controller-manager kube-scheduler
   $ sudo mv kube-apiserver kube-controller-manager kube-scheduler /usr/local/bin/
   $ sudo mkdir -p /var/lib/kubernetes/
-  $ sudo mv ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem encryption-config.yaml /var/lib/kubernetes/
+  $ sudo cp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem encryption-config.yaml /var/lib/kubernetes/
 ```
 
 **Create service files for above components**
@@ -418,7 +418,7 @@ sudo systemctl start etcd
   
   [Service]
   ExecStart=/usr/local/bin/kube-apiserver \\
-    --admission-control=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,Defau  ltStorageClass,ResourceQuota \\
+    --admission-control=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
     --advertise-address=192.168.1.111 \\
     --allow-privileged=true \\
     --apiserver-count=2 \\
@@ -453,7 +453,7 @@ sudo systemctl start etcd
   
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
 
   $ cat << EOF | sudo tee /etc/systemd/system/kube-controller-manager.service
   [Unit]
@@ -478,7 +478,7 @@ sudo systemctl start etcd
   
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
   
   $ cat << EOF | sudo tee /etc/systemd/system/kube-scheduler.service
   [Unit]
@@ -495,7 +495,7 @@ sudo systemctl start etcd
   
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
 ```
 
 **Start the above services and verify if they were started**
@@ -515,7 +515,7 @@ sudo systemctl start etcd
   etcd-0               Healthy   {"health":"true"}   
 ```
 
-**Configure RBAC so that kubelet can authorize the api server**
+**Configure RBAC so that kubelet on worker nodes can authorize the api server**
 ```bash
   $ cat <<EOF | kubectl apply -f -
   apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -537,7 +537,7 @@ sudo systemctl start etcd
         - nodes/metrics
       verbs:
         - "*"
-  EOF
+EOF
   
   
   $ cat <<EOF | kubectl apply -f -
@@ -554,7 +554,7 @@ sudo systemctl start etcd
     - apiGroup: rbac.authorization.k8s.io
       kind: User
       name: kubernetes
-  EOF
+EOF
 ```
 
 **Verify api server access**
@@ -600,7 +600,7 @@ sudo systemctl start etcd
 
 **Create systemd unit file for containerd**
 ```bash
-cat << EOF | sudo tee /etc/systemd/system/containerd.service
+  $ cat << EOF | sudo tee /etc/systemd/system/containerd.service
 [Unit]
 Description=containerd container runtime
 Documentation=https://containerd.io
@@ -632,10 +632,11 @@ EOF
   $ tar xvf crictl-v1.11.1-linux-amd64.tar.gz
   $ chmod +x crictl
   $ sudo mv crictl /usr/local/bin
+
   $ cat << EOF | sudo tee /etc/crictl.yaml
   runtime-endpoint: unix:///var/run/containerd/containerd.sock
   timeout: 10
-  EOF
+EOF
 ```
 
 **Install kubernetes binaries**
@@ -676,7 +677,7 @@ EOF
     --cluster-domain=cluster.local \\
     --container-runtime=remote \\
     --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock \\
-    --image-pull-progress-deadline=2m \\
+    --image-pull-progress-deadline=5m \\
     --kubeconfig=/var/lib/kubelet/kubeconfig \\
     --network-plugin=cni \\
     --pod-cidr=10.150.0.0/16 \\
@@ -690,7 +691,7 @@ EOF
   
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
   
   $ cat << EOF | sudo tee /etc/systemd/system/kube-proxy.service
   [Unit]
@@ -708,7 +709,7 @@ EOF
   
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
 ```
 
 **Start and verify the above services**
@@ -804,15 +805,15 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
 ### Verify DNS
 ```bash
   $ kubectl run -it --rm --restart=Never --image=infoblox/dnstools:latest dnstools
-  If you don't see a command prompt, try pressing enter.
-  dnstools# host kubernetes
-  kubernetes.default.svc.cluster.local has address 10.32.0.1
-  dnstools# host kube-dns.kube-system
-  kube-dns.kube-system.svc.cluster.local has address 10.32.0.10
-  dnstools# host 10.32.0.10
-  10.0.32.10.in-addr.arpa domain name pointer kube-dns.kube-system.svc.cluster.local.
-  dnstools# exit
-  pod "dnstools" deleted
+      If you don't see a command prompt, try pressing enter.
+      dnstools# host kubernetes
+      kubernetes.default.svc.cluster.local has address 10.32.0.1
+      dnstools# host kube-dns.kube-system
+      kube-dns.kube-system.svc.cluster.local has address 10.32.0.10
+      dnstools# host 10.32.0.10
+      10.0.32.10.in-addr.arpa domain name pointer kube-dns.kube-system.svc.cluster.local.
+      dnstools# exit
+      pod "dnstools" deleted
 ```
 
 ### Setup nginx ingress
@@ -849,7 +850,6 @@ $ git checkout remotes/origin/release-0.9
 $ git branch -a
 
 $ kubectl create -f operator.yaml
-$ kubectl get pods -n rook-ceph-system
 
 $ kubectl get pods -n rook-ceph-system -o wide
 NAME                                  READY     STATUS    RESTARTS   AGE       IP              NODE
