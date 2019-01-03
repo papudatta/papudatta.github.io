@@ -44,8 +44,8 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 | **kubelet** | 1.11.1 |
 | **cfssl** | 1.2 |
 | **etcd** | 3.3.9 |
-| **CNI plugins** | 0.7.1 |
-| **containerd** | 1.1.5 |
+| **CNI plugins** | 0.7.4 |
+| **containerd** | 1.2.1 |
 | **runc** | 1.0 rc6 |
 | **crictl** | 1.11.1 |
 | **weave net** | 2.5 |
