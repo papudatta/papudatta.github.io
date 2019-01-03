@@ -591,8 +591,8 @@ EOF
       "https://github.com/containerd/containerd/releases/download/v1.2.1/containerd-1.2.1.linux-amd64.tar.gz" \
       "https://github.com/opencontainers/runc/releases/download/v1.0.0-rc6/runc.amd64"
 
-  $ sudo tar xvf cni-plugins-amd64-v0.7.1.tgz -C /opt/cni/bin
-  $ sudo tar xvf containerd-1.1.5.linux-amd64.tar.gz -C /usr/local/
+  $ sudo tar xvf cni-plugins-amd64-v0.7.4.tgz -C /opt/cni/bin
+  $ sudo tar xvf containerd-1.2.1.linux-amd64.tar.gz -C /usr/local/
   $ mv runc.amd64 runc
   $ chmod +x runc
   $ sudo mv runc /usr/local/bin/
