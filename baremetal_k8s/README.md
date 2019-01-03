@@ -58,7 +58,7 @@ All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 | **pod/cluster cidr** | 10.150.0.0/16 |
 | **service cidr** | 10.32.0.0/24 |
 
-I added a static route on the host iMac for service subnet 10.32.0.0/16
+I added a static route on the host iMac for service subnet 10.32.0.0/24
 
 ```$ sudo route add -net 10.32.0.0/24 192.168.1.112```
 
@@ -498,7 +498,7 @@ EOF
 EOF
 ```
 
-**Start the above services and verify if they were started**
+**Start the above services and verify if they are running**
 ```bash
   $ sudo systemctl daemon-reload
   $ sudo systemctl enable kube-apiserver kube-controller-manager kube-scheduler
@@ -582,6 +582,8 @@ EOF
   $ sudo sysctl -p /etc/sysctl.conf
   $ sudo swapoff -a  (/etc/fstab as well)
   $ sudo ufw disable
+  $ sudo mkdir -p /opt/cni/bin \
+                  /etc/cni/net.d
 ```
 
 **Install CNI plugins, containerd and runc**
@@ -769,14 +771,14 @@ $ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl vers
   $ wget https://raw.githubusercontent.com/mch1307/k8s-thw/master/coredns.yaml
 ```
 
-Edited the IP in respective sections, as shown in below snippet:
+Edited the IP, subnets in respective sections, as shown in below snippet:
 ```bash
    ...
    Corefile: |
        .:53 {
            errors
            health
-           kubernetes cluster.local 10.32.0.0/24 { 
+           kubernetes cluster.local 10.150.0.0/16 10.32.0.0/24 { 
              pods insecure
              upstream
              fallthrough in-addr.arpa ip6.arpa
