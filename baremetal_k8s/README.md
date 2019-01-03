@@ -587,8 +587,8 @@ EOF
 **Install CNI plugins, containerd and runc**
 ```bash
   $ wget -q --show-progress --https-only --timestamping \
-      "https://github.com/containernetworking/plugins/releases/download/v0.7.1/cni-plugins-amd64-v0.7.1.tgz" \
-      "https://github.com/containerd/containerd/releases/download/v1.1.5/containerd-1.1.5.linux-amd64.tar.gz" \
+      "https://github.com/containernetworking/plugins/releases/download/v0.7.4/cni-plugins-amd64-v0.7.4.tgz" \
+      "https://github.com/containerd/containerd/releases/download/v1.2.1/containerd-1.2.1.linux-amd64.tar.gz" \
       "https://github.com/opencontainers/runc/releases/download/v1.0.0-rc6/runc.amd64"
 
   $ sudo tar xvf cni-plugins-amd64-v0.7.1.tgz -C /opt/cni/bin
