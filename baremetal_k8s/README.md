@@ -409,7 +409,8 @@ EOF
   $ sudo cp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem encryption-config.yaml /var/lib/kubernetes/
 ```
 
-**Create service files for above components**
+**Create service files for above components.**
+We'll use **Node** and **RBAC** authorization mode.
 ```bash
   $ cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
   [Unit]
