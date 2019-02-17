@@ -341,7 +341,7 @@ EOF
 
 **Create service file for etcd**
 ```bash
-  $ ETCD_NAME=`hostname -f`
+  $ ETCD_NAME=$(hostname -f)
   $ cat << EOF | sudo tee /etc/systemd/system/etcd.service
   [Unit]
   Description=etcd
