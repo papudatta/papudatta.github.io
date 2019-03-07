@@ -844,6 +844,12 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
   kube-system     weave-net-jx68d                            2/2       Running   0          16m       192.168.1.113   node2.home
 ```
 
+*In case we should be required to use an ingress version different from the latest*
+```bash
+$ kubectl set image deployment/nginx-ingress-controller -n \
+    ingress-nginx nginx-ingress-controller=quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.21.0
+```
+
 ### Setup rook for persistent volume requirements
 
 ```bash
