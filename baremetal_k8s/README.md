@@ -422,7 +422,7 @@ We'll use **Node** and **RBAC** authorization mode.
     --admission-control=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
     --advertise-address=192.168.1.111 \\
     --allow-privileged=true \\
-    --apiserver-count=2 \\
+    --apiserver-count=1 \\
     --audit-log-maxage=30 \\
     --audit-log-maxbackup=2 \\
     --audit-log-maxsize=100 \\
