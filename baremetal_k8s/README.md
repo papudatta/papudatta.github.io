@@ -44,7 +44,7 @@ Click [View On Github](https://github.com/papudatta/papudatta.github.io) above t
 | **cfssl** | 1.2 |
 | **etcd** | 3.3.9 |
 | **docker** | 18.06.3 |
-| **calico** | 2.5 |
+| **calico** | 3.4 |
 | **coredns** | latest |
 
 **Subnets used**
@@ -70,10 +70,10 @@ $ ssh-copy-id node2.home
 
 Start by downloading prebuilt `cfssl` packages
 ```bash
-  $ curl -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
-  $ curl -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
-  $ chmod +x cfssl cfssljson
-  $ sudo mv cfssl cfssljson /usr/local/bin/
+$ curl -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+$ curl -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+$ chmod +x cfssl cfssljson
+$ sudo mv cfssl cfssljson /usr/local/bin/
 ```
 **Verify**
 ```bash
@@ -85,48 +85,77 @@ Runtime: go1.6
 
 **Generate Root CA**
 ```bash
-  $ cat > ca-config.json <<EOF
-  {
-    "signing": {
-      "default": {
+$ cat > ca-config.json <<EOF
+{
+  "signing": {
+    "default": {
+      "expiry": "26280h"
+    },
+    "profiles": {
+      "kubernetes": {
+        "usages": ["signing", "key encipherment", "server auth", "client auth"],
         "expiry": "26280h"
-      },
-      "profiles": {
-        "kubernetes": {
-          "usages": ["signing", "key encipherment", "server auth", "client auth"],
-          "expiry": "26280h"
-        }
       }
     }
   }
+}
 EOF
   
-  $ cat > ca-csr.json <<EOF
-   {
-     "CN": "Kubernetes",
-     "key": {
-       "algo": "rsa",
-       "size": 2048
-     },
-     "names": [
-       {
-         "C": "IN",
-         "L": "BGLR",
-         "O": "Kubernetes",
-         "OU": "CKA"
-       }
-     ]
-   }
+$ cat > ca-csr.json <<EOF
+{
+   "CN": "Kubernetes",
+   "key": {
+     "algo": "rsa",
+     "size": 2048
+   },
+   "names": [
+     {
+       "C": "IN",
+       "L": "BGLR",
+       "O": "Kubernetes",
+       "OU": "CKA"
+     }
+   ]
+}
 EOF
   
-  $ cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+$ cfssl gencert -initca ca-csr.json | cfssljson -bare ca
 ```
 
 **Create certificate for admin**
 ```bash
-  $ cat > admin-csr.json <<EOF
+$ cat > admin-csr.json <<EOF
+{
+  "CN": "admin",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "IN",
+      "L": "BGLR",
+      "O": "system:masters",
+      "OU": "CKA"
+    }
+  ]
+}
+EOF
+  
+$ cfssl gencert \
+   -ca=ca.pem \
+   -ca-key=ca-key.pem \
+   -config=ca-config.json \
+   -profile=kubernetes \
+   admin-csr.json | cfssljson -bare admin
+```
+
+**Create kubelet certificates for worker nodes**
+```bash
+$ for instance in node1.home node2.home; do
+  cat > ${instance}-csr.json <<EOF
   {
-    "CN": "admin",
+    "CN": "system:node:${instance}",
     "key": {
       "algo": "rsa",
       "size": 2048
@@ -135,40 +164,11 @@ EOF
       {
         "C": "IN",
         "L": "BGLR",
-        "O": "system:masters",
+        "O": "system:nodes",
         "OU": "CKA"
       }
     ]
   }
-EOF
-  
-  $ cfssl gencert \
-     -ca=ca.pem \
-     -ca-key=ca-key.pem \
-     -config=ca-config.json \
-     -profile=kubernetes \
-     admin-csr.json | cfssljson -bare admin
-```
-
-**Create kubelet certificates for worker nodes**
-```bash
-  $ for instance in node1.home node2.home; do
-    cat > ${instance}-csr.json <<EOF
-    {
-      "CN": "system:node:${instance}",
-      "key": {
-        "algo": "rsa",
-        "size": 2048
-      },
-      "names": [
-        {
-          "C": "IN",
-          "L": "BGLR",
-          "O": "system:nodes",
-          "OU": "CKA"
-        }
-      ]
-    }
 EOF
     
     IP=$(ping -c2 ${instance} | sed -nE 's/^PING[^(]+\(([^)]+)\).*/\1/p')
@@ -180,7 +180,7 @@ EOF
      -hostname=${instance},$IP \
      -profile=kubernetes \
      ${instance}-csr.json | cfssljson -bare ${instance}
-  done
+done
 ```
 
 **Create kube-controller-manager certificate**
@@ -213,30 +213,30 @@ $ cfssl gencert \
 
 **Create kube-proxy certificate**
 ```bash
-  $ cat > kube-proxy-csr.json <<EOF
-  {
-    "CN": "system:kube-proxy",
-    "key": {
-      "algo": "rsa",
-      "size": 2048
-    },
-    "names": [
-      {
-        "C": "IN",
-        "L": "BGLR",
-        "O": "system:node-proxier",
-        "OU": "CKA"
-      }
-    ]
-  }
+$ cat > kube-proxy-csr.json <<EOF
+{
+  "CN": "system:kube-proxy",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "IN",
+      "L": "BGLR",
+      "O": "system:node-proxier",
+      "OU": "CKA"
+    }
+  ]
+}
 EOF
   
-  $ cfssl gencert \
-     -ca=ca.pem \
-     -ca-key=ca-key.pem \
-     -config=ca-config.json \
-     -profile=kubernetes \
-     kube-proxy-csr.json | cfssljson -bare kube-proxy
+$ cfssl gencert \
+   -ca=ca.pem \
+   -ca-key=ca-key.pem \
+   -config=ca-config.json \
+   -profile=kubernetes \
+   kube-proxy-csr.json | cfssljson -bare kube-proxy
 ```
 
 **Create kube-scheduler certificate**
@@ -272,32 +272,32 @@ $ cfssl gencert \
 
 Please note the SAN field containing master's IP, kubernetes api IP and name
 ```bash
-  $ cat > kubernetes-csr.json <<EOF
-  {
-    "CN": "kubernetes",
-    "key": {
-      "algo": "rsa",
-      "size": 2048
-    },
-    "names": [
-      {
-        "C": "IN",
-        "L": "BGLR",
-        "O": "Kubernetes",
-        "OU": "CKA"
-      }
-    ]
-  }
+$ cat > kubernetes-csr.json <<EOF
+{
+  "CN": "kubernetes",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "IN",
+      "L": "BGLR",
+      "O": "Kubernetes",
+      "OU": "CKA"
+    }
+  ]
+}
 EOF
   
   
-  $ cfssl gencert \
-     -ca=ca.pem \
-     -ca-key=ca-key.pem \
-     -config=ca-config.json \
-     -hostname=192.168.1.111,10.32.0.1,127.0.0.1,kubernetes.default \
-     -profile=kubernetes \
-     kubernetes-csr.json | cfssljson -bare kubernetes
+$ cfssl gencert \
+   -ca=ca.pem \
+   -ca-key=ca-key.pem \
+   -config=ca-config.json \
+   -hostname=192.168.1.111,10.32.0.1,127.0.0.1,kubernetes.default \
+   -profile=kubernetes \
+   kubernetes-csr.json | cfssljson -bare kubernetes
 ```
 
 **Create service-account certificate**
@@ -455,8 +455,8 @@ done
 
 This is to secure the data stored in etcd key/value database. The `--encryption-provider-config` flag in `kube-api` service will use this config file.
 ```bash
-  $ ENCRYPTION_KEY=`head -c 32 /dev/urandom | base64`
-  $ cat > encryption-config.yaml <<EOF
+$ ENCRYPTION_KEY=`head -c 32 /dev/urandom | base64`
+$ cat > encryption-config.yaml <<EOF
 kind: EncryptionConfiguration
 apiVersion: apiserver.config.k8s.io/v1
 resources:
@@ -475,64 +475,64 @@ EOF
 
 **Download etcd, move the executables and copy required certs.**
 ```bash
-  $ wget -q --show-progress --https-only --timestamping \
-      "https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz"
-  
-  $ tar -xvf etcd-v3.3.9-linux-amd64.tar.gz
-  $ sudo mv etcd-v3.3.9-linux-amd64/etcd* /usr/local/bin/
-  $ sudo mkdir -p /etc/etcd /var/lib/etcd
-  $ sudo cp ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/
+$ wget -q --show-progress --https-only --timestamping \
+    "https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz"
+
+$ tar -xvf etcd-v3.3.9-linux-amd64.tar.gz
+$ sudo mv etcd-v3.3.9-linux-amd64/etcd* /usr/local/bin/
+$ sudo mkdir -p /etc/etcd /var/lib/etcd
+$ sudo cp ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/
 ```
 
 **Create service file for etcd**
 ```bash
-  $ ETCD_NAME=$(hostname -f)
-  $ cat << EOF | sudo tee /etc/systemd/system/etcd.service
-  [Unit]
-  Description=etcd
-  Documentation=https://github.com/coreos
-  
-  [Service]
-  ExecStart=/usr/local/bin/etcd \\
-    --name $ETCD_NAME \\
-    --cert-file=/etc/etcd/kubernetes.pem \\
-    --key-file=/etc/etcd/kubernetes-key.pem \\
-    --peer-cert-file=/etc/etcd/kubernetes.pem \\
-    --peer-key-file=/etc/etcd/kubernetes-key.pem \\
-    --trusted-ca-file=/etc/etcd/ca.pem \\
-    --peer-trusted-ca-file=/etc/etcd/ca.pem \\
-    --peer-client-cert-auth \\
-    --client-cert-auth \\
-    --initial-advertise-peer-urls https://192.168.1.111:2380 \\
-    --listen-peer-urls https://192.168.1.111:2380 \\
-    --listen-client-urls https://192.168.1.111:2379,https://127.0.0.1:2379 \\
-    --advertise-client-urls https://192.168.1.111:2379 \\
-    --initial-cluster-token etcd-cluster-0 \\
-    --initial-cluster master.home=https://192.168.1.111:2380 \\
-    --initial-cluster-state new \\
-    --data-dir=/var/lib/etcd
-  Restart=on-failure
-  RestartSec=5
-  
-  [Install]
-  WantedBy=multi-user.target
+$ ETCD_NAME=$(hostname -f)
+$ cat << EOF | sudo tee /etc/systemd/system/etcd.service
+[Unit]
+Description=etcd
+Documentation=https://github.com/coreos
+
+[Service]
+ExecStart=/usr/local/bin/etcd \\
+  --name $ETCD_NAME \\
+  --cert-file=/etc/etcd/kubernetes.pem \\
+  --key-file=/etc/etcd/kubernetes-key.pem \\
+  --peer-cert-file=/etc/etcd/kubernetes.pem \\
+  --peer-key-file=/etc/etcd/kubernetes-key.pem \\
+  --trusted-ca-file=/etc/etcd/ca.pem \\
+  --peer-trusted-ca-file=/etc/etcd/ca.pem \\
+  --peer-client-cert-auth \\
+  --client-cert-auth \\
+  --initial-advertise-peer-urls https://192.168.1.111:2380 \\
+  --listen-peer-urls https://192.168.1.111:2380 \\
+  --listen-client-urls https://192.168.1.111:2379,https://127.0.0.1:2379 \\
+  --advertise-client-urls https://192.168.1.111:2379 \\
+  --initial-cluster-token etcd-cluster-0 \\
+  --initial-cluster master.home=https://192.168.1.111:2380 \\
+  --initial-cluster-state new \\
+  --data-dir=/var/lib/etcd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 EOF
 ```
 
 **Start the etc service**
 ```bash
-  $ sudo systemctl daemon-reload
-  $ sudo systemctl enable etcd
-  $ sudo systemctl start etcd
+$ sudo systemctl daemon-reload
+$ sudo systemctl enable etcd
+$ sudo systemctl start etcd
 ```
 
 **Verify etcd operation**
 ```bash
-  $ sudo ETCDCTL_API=3 etcdctl member list \
-  --endpoints=https://127.0.0.1:2379 \
-  --cacert=/etc/etcd/ca.pem \
-  --cert=/etc/etcd/kubernetes.pem \
-  --key=/etc/etcd/kubernetes-key.pem
+$ sudo ETCDCTL_API=3 etcdctl member list \
+--endpoints=https://127.0.0.1:2379 \
+--cacert=/etc/etcd/ca.pem \
+--cert=/etc/etcd/kubernetes.pem \
+--key=/etc/etcd/kubernetes-key.pem
 3f3a73a30a4872c4, started, master.home, https://192.168.1.111:2380, https://192.168.1.111:2379
 ```
 
@@ -540,18 +540,18 @@ EOF
 
 **Install kube-apiserver, kube-controller-manager and kube-scheduler binaries**
 ```bash
-  $ sudo mkdir -p /etc/kubernetes/config
-  $ wget -q --show-progress --https-only --timestamping \
-    "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-apiserver" \
-    "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-controller-manager" \
-    "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-scheduler"
+$ sudo mkdir -p /etc/kubernetes/config
+$ wget -q --show-progress --https-only --timestamping \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-apiserver" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-controller-manager" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-scheduler"
 
-  $ chmod +x kube-apiserver kube-controller-manager kube-scheduler
-  $ sudo mv kube-apiserver kube-controller-manager kube-scheduler /usr/local/bin/
-  $ sudo mkdir -p /var/lib/kubernetes/
-  $ sudo cp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem \
-    service-account-key.pem service-account.pem \
-    encryption-config.yaml /var/lib/kubernetes/
+$ chmod +x kube-apiserver kube-controller-manager kube-scheduler
+$ sudo mv kube-apiserver kube-controller-manager kube-scheduler /usr/local/bin/
+$ sudo mkdir -p /var/lib/kubernetes/
+$ sudo cp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem \
+  service-account-key.pem service-account.pem \
+  encryption-config.yaml /var/lib/kubernetes/
 ```
 
 **Create service files for above components.**
@@ -846,28 +846,6 @@ $ sudo systemctl start kubelet kube-proxy
 $ for service in kubelet kube-proxy; do sudo systemctl status $service; done
 ```
 
-??????
-### Generate kubectl config
-
-**We are back in master.node**
-```bash
-  $ kubectl config set-cluster kubernetes \
-    --certificate-authority=ca.pem \
-    --embed-certs=true \
-    --server=https://192.168.1.111:6443
-  
-  $ kubectl config set-credentials admin \
-    --client-certificate=admin.pem \
-    --client-key=admin-key.pem
-  
-  $ kubectl config set-context kubernetes \
-    --cluster=kubernetes \
-    --user=admin
-  
-  $ kubectl config use-context kubernetes
-```
-??????
-
 ### Configure networking with Calico
 ```bash
 $ curl -O \
@@ -891,7 +869,7 @@ node2.home   Ready    <none>   6m50s   v1.13.2   192.168.1.113   <none>        U
 
 **We'll use coredns and apply the yaml config here as well. First download the yaml and edit the IP**
 ```bash
-  $ wget https://raw.githubusercontent.com/mch1307/k8s-thw/master/coredns.yaml
+$ wget https://raw.githubusercontent.com/mch1307/k8s-thw/master/coredns.yaml
 ```
 
 Edited the IP, subnets in respective sections, as shown in below snippet:
@@ -927,16 +905,16 @@ coredns-7848f666d8-stjxp   1/1     Running   0          37s   10.150.1.2   node2
 
 ### Verify DNS
 ```bash
-  $ kubectl run -it --rm --restart=Never --image=infoblox/dnstools:latest dnstools
-      If you don't see a command prompt, try pressing enter.
-      dnstools# host kubernetes
-      kubernetes.default.svc.cluster.local has address 10.32.0.1
-      dnstools# host kube-dns.kube-system
-      kube-dns.kube-system.svc.cluster.local has address 10.32.0.10
-      dnstools# host 10.32.0.10
-      10.0.32.10.in-addr.arpa domain name pointer kube-dns.kube-system.svc.cluster.local.
-      dnstools# exit
-      pod "dnstools" deleted
+$ kubectl run -it --rm --restart=Never --image=infoblox/dnstools:latest dnstools
+    If you don't see a command prompt, try pressing enter.
+    dnstools# host kubernetes
+    kubernetes.default.svc.cluster.local has address 10.32.0.1
+    dnstools# host kube-dns.kube-system
+    kube-dns.kube-system.svc.cluster.local has address 10.32.0.10
+    dnstools# host 10.32.0.10
+    10.0.32.10.in-addr.arpa domain name pointer kube-dns.kube-system.svc.cluster.local.
+    dnstools# exit
+    pod "dnstools" deleted
 ```
 
 ### Setup nginx ingress
@@ -979,6 +957,17 @@ $ kubectl create secret docker-registry mydockercfg \
   --docker-username=DOCKER_USER \
   --docker-email=DOCKER_EMAIL \
   --docker-password=DOCKER_PASSWORD
+
+$ cat pod.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-demo
+spec:
+  imagePullSecrets:
+  - name: mydockercfg  <===
+  ...
+  ...
 ```
 
 
