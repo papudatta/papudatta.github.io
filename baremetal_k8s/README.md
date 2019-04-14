@@ -958,16 +958,23 @@ $ kubectl create secret docker-registry mydockercfg \
   --docker-email=DOCKER_EMAIL \
   --docker-password=DOCKER_PASSWORD
 
-$ cat pod.yml
+$ cat mypod.yml
 apiVersion: v1
 kind: Pod
 metadata:
   name: pod-demo
 spec:
   imagePullSecrets:
-  - name: mydockercfg  <===
-  ...
-  ...
+  - name: mydockercfg
+  containers:
+  - image: k8s.gcr.io/test-webserver
+    name: test-container
+    volumeMounts:
+    - mountPath: /cache
+      name: cache-volume
+  volumes:
+  - name: cache-volume
+    emptyDir: {}
 ```
 
 
@@ -975,31 +982,31 @@ spec:
 
 ```bash
 $ git clone https://github.com/rook/rook
-$ cd rook/cluster/examples/kubernetes/ceph
-$ git checkout remotes/origin/release-0.9
+$ cd rook
+$ git checkout v0.9.2
 $ git branch -a
-
+$ cd cluster/examples/kubernetes/ceph
 $ kubectl create -f operator.yaml
-
-$ kubectl get pods -n rook-ceph-system -o wide
-NAME                                  READY     STATUS    RESTARTS   AGE       IP              NODE
-rook-ceph-agent-qjhbz                 1/1       Running   0          2m        192.168.1.113   node2.home
-rook-ceph-agent-vr8n5                 1/1       Running   0          2m        192.168.1.112   node1.home
-rook-ceph-operator-64454f9bf5-rzrrt   1/1       Running   0          5m        10.150.128.2    node2.home
-rook-discover-s6r2h                   1/1       Running   0          2m        10.150.128.3    node2.home
-rook-discover-x49k6                   1/1       Running   0          2m        10.150.0.4      node1.home
-
 $ kubectl create -f cluster.yaml
 
+$ kubectl -n rook-ceph-system get pod -o wide
+NAME                                 READY   STATUS    RESTARTS   AGE     IP              NODE         NOMINATED NODE   READINESS GATES
+rook-ceph-agent-5vbb2                1/1     Running   0          95s     192.168.1.113   node2.home   <none>           <none>
+rook-ceph-agent-6h869                1/1     Running   0          95s     192.168.1.112   node1.home   <none>           <none>
+rook-ceph-operator-789c78f6d-fhxvh   1/1     Running   0          2m54s   10.150.1.7      node2.home   <none>           <none>
+rook-discover-5xc55                  1/1     Running   0          95s     10.150.0.9      node1.home   <none>           <none>
+rook-discover-lw4sj                  1/1     Running   0          95s     10.150.1.8      node2.home   <none>           <none>
+
 $ kubectl get pods -n rook-ceph -o wide
-NAME                                     READY     STATUS      RESTARTS   AGE       IP             NODE
-rook-ceph-mgr-a-55bb9c6474-rsjhd         1/1       Running     0          42s       10.150.128.5   node2.home
-rook-ceph-mon-a-55587db7d5-ttcgt         1/1       Running     0          2m        10.150.0.6     node1.home
-rook-ceph-mon-b-c856d479d-5n9t8          1/1       Running     0          1m        10.150.128.4   node2.home
-rook-ceph-osd-0-5bb87d785-wwq4c          1/1       Running     0          15s       10.150.0.7     node1.home
-rook-ceph-osd-1-d66cc6fd-xlppl           1/1       Running     0          13s       10.150.128.7   node2.home
-rook-ceph-osd-prepare-node1.home-2h9h4   0/2       Completed   1          24s       10.150.0.5     node1.home
-rook-ceph-osd-prepare-node2.home-d698s   0/2       Completed   1          24s       10.150.128.6   node2.home
+NAME                                     READY   STATUS      RESTARTS   AGE     IP            NODE         NOMINATED NODE   READINESS GATES
+rook-ceph-mgr-a-5c8797779d-872xd         1/1     Running     0          5m23s   10.150.1.10   node2.home   <none>           <none>
+rook-ceph-mon-a-9c9754bbf-k7wlk          1/1     Running     0          7m16s   10.150.0.12   node1.home   <none>           <none>
+rook-ceph-mon-b-745d68f64f-ww86x         1/1     Running     0          7m1s    10.150.1.9    node2.home   <none>           <none>
+rook-ceph-mon-c-6bd4fd7475-snnmd         1/1     Running     0          5m36s   10.150.0.13   node1.home   <none>           <none>
+rook-ceph-osd-0-f888887c9-nclm2          1/1     Running     0          4m36s   10.150.0.15   node1.home   <none>           <none>
+rook-ceph-osd-1-5bf44b86f8-tk7r2         1/1     Running     0          4m33s   10.150.1.12   node2.home   <none>           <none>
+rook-ceph-osd-prepare-node1.home-fs4c9   0/2     Completed   0          4m52s   10.150.0.14   node1.home   <none>           <none>
+rook-ceph-osd-prepare-node2.home-ts7fg   0/2     Completed   0          4m52s   10.150.1.11   node2.home   <none>           <none>
 
 $ kubectl create -f storageclass.yaml
 ```
