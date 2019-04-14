@@ -1,6 +1,6 @@
 ## Introduction
 
-Hello! My goal is to outline the detailed steps I followed in bringing up a kubernetes cluster on "bare-metal" Ubuntu VMs. All this was inspired by the exellent tutorials in [kubernetes_the_hard_way](https://github.com/kelseyhightower/kubernetes-the-hard-way) and [Michael Champagne's blog](https://blog.csnet.me/)
+Hello! My goal is to outline the detailed steps I followed in bringing up a kubernetes cluster on "bare-metal" VMs running Ubuntu 18.04 LTS. This was inspired by the exellent tutorials in [kubernetes_the_hard_way](https://github.com/kelseyhightower/kubernetes-the-hard-way) and [Michael Champagne's blog](https://blog.csnet.me/)
 
 Click [View On Github](https://github.com/papudatta/papudatta.github.io) above to report any issues with this procedure.
 
@@ -28,27 +28,23 @@ Click [View On Github](https://github.com/papudatta/papudatta.github.io) above t
 
 | Hostname | IP Address | Memory | Disk space |
 | --- | --- | --- | --- |
-| **master.home** | 192.168.1.111 | 4GiB | 15GiB |
-| **node1.home** | 192.168.1.112 | 3GiB | 20GiB |
-| **node2.home** | 192.168.1.113 | 3GiB | 20GiB |
+| **master.home** | 192.168.1.111 | 3GiB | 25GiB |
+| **node1.home** | 192.168.1.112 | 4GiB | 15GiB |
+| **node2.home** | 192.168.1.113 | 4GiB | 15GiB |
 
-**Please change the hostname to the FQDN (like mynode.kube) in** `/etc/hostname` **and reboot**
+**Please change the hostname to the FQDN (like node1.home) in** `/etc/hostname` **and reboot**
 
-All the above VMs on an iMac were running Ubuntu 16.04 LTS.
 
 **Component versions**
 
 | Component | Version |
 | --- | --- |
-| **kubectl** | 1.11.1 |
-| **kubelet** | 1.11.1 |
+| **kubectl** | 1.13.2 |
+| **kubelet** | 1.13.2 |
 | **cfssl** | 1.2 |
 | **etcd** | 3.3.9 |
-| **CNI plugins** | 0.7.4 |
-| **containerd** | 1.2.1 |
-| **runc** | 1.0 rc6 |
-| **crictl** | 1.11.1 |
-| **weave net** | 2.5 |
+| **docker** | 18.06.3 |
+| **calico** | 2.5 |
 | **coredns** | latest |
 
 **Subnets used**
@@ -78,6 +74,13 @@ Start by downloading prebuilt `cfssl` packages
   $ curl -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
   $ chmod +x cfssl cfssljson
   $ sudo mv cfssl cfssljson /usr/local/bin/
+```
+**Verify**
+```bash
+$ cfssl version
+Version: 1.2.0
+Revision: dev
+Runtime: go1.6
 ```
 
 **Generate Root CA**
@@ -180,6 +183,34 @@ EOF
   done
 ```
 
+**Create kube-controller-manager certificate**
+```bash
+$ cat > kube-controller-manager-csr.json <<EOF
+{
+  "CN": "system:kube-controller-manager",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "IN",
+      "L": "BGLR",
+      "O": "system:kube-controller-manager",
+      "OU": "CKA"
+    }
+  ]
+}
+EOF
+
+$ cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager
+```
+
 **Create kube-proxy certificate**
 ```bash
   $ cat > kube-proxy-csr.json <<EOF
@@ -207,6 +238,35 @@ EOF
      -profile=kubernetes \
      kube-proxy-csr.json | cfssljson -bare kube-proxy
 ```
+
+**Create kube-scheduler certificate**
+```bash
+$ cat > kube-scheduler-csr.json <<EOF
+{
+  "CN": "system:kube-scheduler",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "IN",
+      "L": "BGLR",
+      "O": "system:kube-scheduler",
+      "OU": "CKA"
+    }
+  ]
+}
+EOF
+
+$ cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  kube-scheduler-csr.json | cfssljson -bare kube-scheduler
+```
+
 
 **Create api server certificate**
 
@@ -240,6 +300,35 @@ EOF
      kubernetes-csr.json | cfssljson -bare kubernetes
 ```
 
+**Create service-account certificate**
+```bash
+$ cat > service-account-csr.json <<EOF
+{
+  "CN": "service-accounts",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "IN",
+      "L": "BGLR",
+      "O": "Kubernetes",
+      "OU": "CKA"
+    }
+  ]
+}
+EOF
+
+$ cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  service-account-csr.json | cfssljson -bare service-account
+```
+
+
 **Distribute the certificates to worker nodes**
 ```bash
   for instance in node1.home node2.home; do
@@ -250,7 +339,7 @@ EOF
 ### Generate kubeconfig files
 **We will need kubectl**
 ```bash
-  $ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubectl
+  $ curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kubectl
   $ chmod +x kubectl
   $ sudo mv kubectl /usr/local/bin/kubectl
 ```
@@ -296,6 +385,63 @@ $ kubectl config set-context default \
   --kubeconfig=kube-proxy.kubeconfig
 
 $ kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+
+$ kubectl config set-cluster kubernetes \
+    --certificate-authority=ca.pem \
+    --embed-certs=true \
+    --server=https://127.0.0.1:6443 \
+    --kubeconfig=kube-controller-manager.kubeconfig
+
+$ kubectl config set-credentials system:kube-controller-manager \
+    --client-certificate=kube-controller-manager.pem \
+    --client-key=kube-controller-manager-key.pem \
+    --embed-certs=true \
+    --kubeconfig=kube-controller-manager.kubeconfig
+
+$ kubectl config set-context default \
+    --cluster=kubernetes \
+    --user=system:kube-controller-manager \
+    --kubeconfig=kube-controller-manager.kubeconfig
+
+$ kubectl config use-context default --kubeconfig=kube-controller-manager.kubeconfig
+
+$ kubectl config set-cluster kubernetes \
+    --certificate-authority=ca.pem \
+    --embed-certs=true \
+    --server=https://127.0.0.1:6443 \
+    --kubeconfig=kube-scheduler.kubeconfig
+
+$ kubectl config set-credentials system:kube-scheduler \
+    --client-certificate=kube-scheduler.pem \
+    --client-key=kube-scheduler-key.pem \
+    --embed-certs=true \
+    --kubeconfig=kube-scheduler.kubeconfig
+
+$ kubectl config set-context default \
+    --cluster=kubernetes \
+    --user=system:kube-scheduler \
+    --kubeconfig=kube-scheduler.kubeconfig
+
+$ kubectl config use-context default --kubeconfig=kube-scheduler.kubeconfig
+
+$ kubectl config set-cluster kubernetes \
+    --certificate-authority=ca.pem \
+    --embed-certs=true \
+    --server=https://127.0.0.1:6443 \
+    --kubeconfig=admin.kubeconfig
+
+$ kubectl config set-credentials admin \
+    --client-certificate=admin.pem \
+    --client-key=admin-key.pem \
+    --embed-certs=true \
+    --kubeconfig=admin.kubeconfig
+
+$ kubectl config set-context default \
+    --cluster=kubernetes \
+    --user=admin \
+    --kubeconfig=admin.kubeconfig
+
+$ kubectl config use-context default --kubeconfig=admin.kubeconfig
 ```
 
 **Distribute the config files**
@@ -307,21 +453,21 @@ done
 
 ### Data encryption config
 
-This is to secure the data stored in etcd key/value database. The `--experimental-encryption-provider-config` flag in `kube-api` service will use this config file.
+This is to secure the data stored in etcd key/value database. The `--encryption-provider-config` flag in `kube-api` service will use this config file.
 ```bash
   $ ENCRYPTION_KEY=`head -c 32 /dev/urandom | base64`
   $ cat > encryption-config.yaml <<EOF
-  kind: EncryptionConfig
-  apiVersion: v1
-  resources:
-    - resources:
-        - secrets
-      providers:
-        - aescbc:
-            keys:
-              - name: key
-                secret: ${ENCRYPTION_KEY}
-        - identity: {}
+kind: EncryptionConfiguration
+apiVersion: apiserver.config.k8s.io/v1
+resources:
+  - resources:
+    - secrets
+    providers:
+    - aescbc:
+        keys:
+        - name: key1
+          secret: ${ENCRYPTION_KEY}
+    - identity: {}
 EOF
 ```
 
@@ -336,7 +482,6 @@ EOF
   $ sudo mv etcd-v3.3.9-linux-amd64/etcd* /usr/local/bin/
   $ sudo mkdir -p /etc/etcd /var/lib/etcd
   $ sudo cp ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/
-  $ sudo cp ca.pem /etc/ssl/certs/
 ```
 
 **Create service file for etcd**
@@ -383,119 +528,132 @@ EOF
 
 **Verify etcd operation**
 ```bash
-  $ export ETCDCTL_CACERT=/etc/etcd/ca.pem
-  $ export ETCDCTL_CERT=/etc/etcd/kubernetes.pem
-  $ export ETCDCTL_KEY=/etc/etcd/kubernetes-key.pem
-  $ sudo chown $(whoami):$(whoami) /etc/etcd/*
-  $ ETCDCTL_API=3 etcdctl member list \
-    --endpoints=https://127.0.0.1:2379 \
-    --cacert=/etc/etcd/ca.pem \
-    --cert=/etc/etcd/kubernetes.pem \
-    --key=/etc/etcd/kubernetes-key.pem
+  $ sudo ETCDCTL_API=3 etcdctl member list \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/etcd/ca.pem \
+  --cert=/etc/etcd/kubernetes.pem \
+  --key=/etc/etcd/kubernetes-key.pem
+3f3a73a30a4872c4, started, master.home, https://192.168.1.111:2380, https://192.168.1.111:2379
 ```
 
 ### Prepare the master node
 
 **Install kube-apiserver, kube-controller-manager and kube-scheduler binaries**
 ```bash
+  $ sudo mkdir -p /etc/kubernetes/config
   $ wget -q --show-progress --https-only --timestamping \
-    "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-apiserver" \
-    "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-controller-manager" \
-    "https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-scheduler"
+    "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-apiserver" \
+    "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-controller-manager" \
+    "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-scheduler"
 
   $ chmod +x kube-apiserver kube-controller-manager kube-scheduler
   $ sudo mv kube-apiserver kube-controller-manager kube-scheduler /usr/local/bin/
   $ sudo mkdir -p /var/lib/kubernetes/
-  $ sudo cp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem encryption-config.yaml /var/lib/kubernetes/
+  $ sudo cp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem \
+    service-account-key.pem service-account.pem \
+    encryption-config.yaml /var/lib/kubernetes/
 ```
 
 **Create service files for above components.**
 We'll use **Node** and **RBAC** authorization mode.
 ```bash
-  $ cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
-  [Unit]
-  Description=Kubernetes API Server
-  Documentation=https://github.com/kubernetes/kubernetes
-  
-  [Service]
-  ExecStart=/usr/local/bin/kube-apiserver \\
-    --admission-control=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
-    --advertise-address=192.168.1.111 \\
-    --allow-privileged=true \\
-    --apiserver-count=1 \\
-    --audit-log-maxage=30 \\
-    --audit-log-maxbackup=2 \\
-    --audit-log-maxsize=100 \\
-    --audit-log-path=/var/log/audit.log \\
-    --authorization-mode=Node,RBAC \\
-    --bind-address=0.0.0.0 \\
-    --client-ca-file=/var/lib/kubernetes/ca.pem \\
-    --enable-swagger-ui=true \\
-    --etcd-cafile=/var/lib/kubernetes/ca.pem \\
-    --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \\
-    --etcd-keyfile=/var/lib/kubernetes/kubernetes-key.pem \\
-    --etcd-servers=https://192.168.1.111:2379 \\
-    --event-ttl=1h \\
-    --experimental-encryption-provider-config=/var/lib/kubernetes/encryption-config.yaml \\
-    --insecure-bind-address=127.0.0.1 \\
-    --kubelet-certificate-authority=/var/lib/kubernetes/ca.pem \\
-    --kubelet-client-certificate=/var/lib/kubernetes/kubernetes.pem \\
-    --kubelet-client-key=/var/lib/kubernetes/kubernetes-key.pem \\
-    --kubelet-https=true \\
-    --runtime-config=api/all \\
-    --service-account-key-file=/var/lib/kubernetes/ca-key.pem \\
-    --service-cluster-ip-range=10.32.0.0/24 \\
-    --service-node-port-range=30000-32767 \\
-    --tls-cert-file=/var/lib/kubernetes/kubernetes.pem \\
-    --tls-private-key-file=/var/lib/kubernetes/kubernetes-key.pem \\
-    --v=2
-  Restart=on-failure
-  RestartSec=5
-  
-  [Install]
-  WantedBy=multi-user.target
+$ cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
+[Unit]
+Description=Kubernetes API Server
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+ExecStart=/usr/local/bin/kube-apiserver \\
+  --advertise-address=192.168.1.111 \\
+  --allow-privileged=true \\
+  --apiserver-count=2 \\
+  --audit-log-maxage=30 \\
+  --audit-log-maxbackup=3 \\
+  --audit-log-maxsize=100 \\
+  --audit-log-path=/var/log/audit.log \\
+  --authorization-mode=Node,RBAC \\
+  --bind-address=0.0.0.0 \\
+  --client-ca-file=/var/lib/kubernetes/ca.pem \\
+  --enable-admission-plugins=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
+  --enable-swagger-ui=true \\
+  --etcd-cafile=/var/lib/kubernetes/ca.pem \\
+  --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \\
+  --etcd-keyfile=/var/lib/kubernetes/kubernetes-key.pem \\
+  --etcd-servers=https://192.168.1.111:2379 \\
+  --event-ttl=1h \\
+  --encryption-provider-config=/var/lib/kubernetes/encryption-config.yaml \\
+  --kubelet-certificate-authority=/var/lib/kubernetes/ca.pem \\
+  --kubelet-client-certificate=/var/lib/kubernetes/kubernetes.pem \\
+  --kubelet-client-key=/var/lib/kubernetes/kubernetes-key.pem \\
+  --kubelet-https=true \\
+  --runtime-config=api/all \\
+  --service-account-key-file=/var/lib/kubernetes/service-account.pem \\
+  --service-cluster-ip-range=10.32.0.0/24 \\
+  --service-node-port-range=30000-32767 \\
+  --tls-cert-file=/var/lib/kubernetes/kubernetes.pem \\
+  --tls-private-key-file=/var/lib/kubernetes/kubernetes-key.pem \\
+  --v=2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 EOF
 
-  $ cat << EOF | sudo tee /etc/systemd/system/kube-controller-manager.service
-  [Unit]
-  Description=Kubernetes Controller Manager
-  Documentation=https://github.com/kubernetes/kubernetes
-  
-  [Service]
-  ExecStart=/usr/local/bin/kube-controller-manager \\
-    --address=0.0.0.0 \\
-    --cluster-cidr=10.150.0.0/16 \\
-    --cluster-name=kubernetes \\
-    --cluster-signing-cert-file=/var/lib/kubernetes/ca.pem \\
-    --cluster-signing-key-file=/var/lib/kubernetes/ca-key.pem \\
-    --leader-elect=true \\
-    --master=http://127.0.0.1:8080 \\
-    --root-ca-file=/var/lib/kubernetes/ca.pem \\
-    --service-account-private-key-file=/var/lib/kubernetes/ca-key.pem \\
-    --service-cluster-ip-range=10.32.0.0/24 \\
-    --v=2
-  Restart=on-failure
-  RestartSec=5
-  
-  [Install]
-  WantedBy=multi-user.target
+$ sudo mv kube-controller-manager.kubeconfig /var/lib/kubernetes/
+
+$ cat <<EOF | sudo tee /etc/systemd/system/kube-controller-manager.service
+[Unit]
+Description=Kubernetes Controller Manager
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+ExecStart=/usr/local/bin/kube-controller-manager \\
+  --address=0.0.0.0 \\
+  --cluster-cidr=10.150.0.0/16 \\
+  --allocate-node-cidrs=true \\
+  --cluster-name=kubernetes \\
+  --cluster-signing-cert-file=/var/lib/kubernetes/ca.pem \\
+  --cluster-signing-key-file=/var/lib/kubernetes/ca-key.pem \\
+  --kubeconfig=/var/lib/kubernetes/kube-controller-manager.kubeconfig \\
+  --leader-elect=true \\
+  --root-ca-file=/var/lib/kubernetes/ca.pem \\
+  --service-account-private-key-file=/var/lib/kubernetes/service-account-key.pem \\
+  --service-cluster-ip-range=10.32.0.0/24 \\
+  --use-service-account-credentials=true \\
+  --v=2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 EOF
-  
-  $ cat << EOF | sudo tee /etc/systemd/system/kube-scheduler.service
-  [Unit]
-  Description=Kubernetes Scheduler
-  Documentation=https://github.com/kubernetes/kubernetes
-  
-  [Service]
-  ExecStart=/usr/local/bin/kube-scheduler \\
-    --leader-elect=true \\
-    --master=http://127.0.0.1:8080 \\
-    --v=2
-  Restart=on-failure
-  RestartSec=5
-  
-  [Install]
-  WantedBy=multi-user.target
+
+$ sudo mv kube-scheduler.kubeconfig /var/lib/kubernetes/
+
+$ cat <<EOF | sudo tee /etc/kubernetes/config/kube-scheduler.yaml
+apiVersion: kubescheduler.config.k8s.io/v1alpha1
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: "/var/lib/kubernetes/kube-scheduler.kubeconfig"
+leaderElection:
+  leaderElect: true
+EOF
+
+$ cat <<EOF | sudo tee /etc/systemd/system/kube-scheduler.service
+[Unit]
+Description=Kubernetes Scheduler
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+ExecStart=/usr/local/bin/kube-scheduler \\
+  --config=/etc/kubernetes/config/kube-scheduler.yaml \\
+  --v=2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 EOF
 ```
 
@@ -518,156 +676,121 @@ EOF
 
 **Configure RBAC so that kubelet on worker nodes can authorize the api server**
 ```bash
-  $ cat <<EOF | kubectl apply -f -
-  apiVersion: rbac.authorization.k8s.io/v1beta1
-  kind: ClusterRole
-  metadata:
-    annotations:
-      rbac.authorization.kubernetes.io/autoupdate: "true"
-    labels:
-      kubernetes.io/bootstrapping: rbac-defaults
-    name: system:kube-apiserver-to-kubelet
-  rules:
-    - apiGroups:
-        - ""
-      resources:
-        - nodes/proxy
-        - nodes/stats
-        - nodes/log
-        - nodes/spec
-        - nodes/metrics
-      verbs:
-        - "*"
+$ cat <<EOF | kubectl apply --kubeconfig admin.kubeconfig -f -
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+  name: system:kube-apiserver-to-kubelet
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/proxy
+      - nodes/stats
+      - nodes/log
+      - nodes/spec
+      - nodes/metrics
+    verbs:
+      - "*"
 EOF
   
-  
-  $ cat <<EOF | kubectl apply -f -
-  apiVersion: rbac.authorization.k8s.io/v1beta1
-  kind: ClusterRoleBinding
-  metadata:
-    name: system:kube-apiserver
-    namespace: ""
-  roleRef:
-    apiGroup: rbac.authorization.k8s.io
-    kind: ClusterRole
-    name: system:kube-apiserver-to-kubelet
-  subjects:
-    - apiGroup: rbac.authorization.k8s.io
-      kind: User
-      name: kubernetes
+$ cat <<EOF | kubectl apply --kubeconfig admin.kubeconfig -f -
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: system:kube-apiserver
+  namespace: ""
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:kube-apiserver-to-kubelet
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: kubernetes
 EOF
 ```
 
 **Verify api server access**
 ```bash
-  $ curl -k https://192.168.1.111:6443/version
-  {
-    "major": "1",
-    "minor": "11",
-    "gitVersion": "v1.11.1",
-    "gitCommit": "b1b29978270dc22fecc592ac55d903350454310a",
-    "gitTreeState": "clean",
-    "buildDate": "2018-07-17T18:43:26Z",
-    "goVersion": "go1.10.3",
-    "compiler": "gc",
-    "platform": "linux/amd64"
-  }
+$ curl --cacert ca.pem https://192.168.1.111:6443/version
+{
+  "major": "1",
+  "minor": "13",
+  "gitVersion": "v1.13.2",
+  "gitCommit": "cff46ab41ff0bb44d8584413b598ad8360ec1def",
+  "gitTreeState": "clean",
+  "buildDate": "2019-01-10T23:28:14Z",
+  "goVersion": "go1.11.4",
+  "compiler": "gc",
+  "platform": "linux/amd64"
+}
 ```
 
 ### Prepare the 2 nodes
 
-**Disable swap, enable ip forwarding, disable firewall and install socat, conntrack on the 2 worker nodes**
+**Disable swap, enable ip forwarding, disable firewall and install socat, conntrack, ipset and docker on all worker nodes**
 ```bash
-  $ sudo apt install socat conntrack
-  =====> Add net.ipv4.ip_forward=1  to  /etc/sysctl.conf
-  $ sudo sysctl -p /etc/sysctl.conf
-  $ sudo swapoff -a  (/etc/fstab as well)
-  $ sudo ufw disable
-  $ sudo mkdir -p /opt/cni/bin \
-                  /etc/cni/net.d
-```
+$ sudo apt-get update
+$ sudo apt-get -y install socat conntrack ipset
+$ sudo -i
+\# echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+\# sysctl -p /etc/sysctl.conf
+\# swapoff -a ; edit /etc/fstab as well
+\# ufw disable
+\# exit
 
-**Install CNI plugins, containerd and runc**
-```bash
-  $ wget -q --show-progress --https-only --timestamping \
-      "https://github.com/containernetworking/plugins/releases/download/v0.7.4/cni-plugins-amd64-v0.7.4.tgz" \
-      "https://github.com/containerd/containerd/releases/download/v1.2.1/containerd-1.2.1.linux-amd64.tar.gz" \
-      "https://github.com/opencontainers/runc/releases/download/v1.0.0-rc6/runc.amd64"
-
-  $ sudo tar xvf cni-plugins-amd64-v0.7.4.tgz -C /opt/cni/bin
-  $ sudo tar xvf containerd-1.2.1.linux-amd64.tar.gz -C /usr/local/
-  $ mv runc.amd64 runc
-  $ chmod +x runc
-  $ sudo mv runc /usr/local/bin/
-```
-
-**Create systemd unit file for containerd**
-```bash
-  $ cat << EOF | sudo tee /etc/systemd/system/containerd.service
-[Unit]
-Description=containerd container runtime
-Documentation=https://containerd.io
-After=network.target
-
-[Service]
-ExecStartPre=/sbin/modprobe overlay
-ExecStart=/usr/local/bin/containerd
-Restart=always
-RestartSec=5
-Delegate=yes
-KillMode=process
-OOMScoreAdjust=-999
-LimitNOFILE=1048576
-# Having non-zero Limit*s causes performance problems due to accounting overhead
-# in the kernel. We recommend using cgroups to do container-local accounting.
-LimitNPROC=infinity
-LimitCORE=infinity
-
-[Install]
-WantedBy=multi-user.target
-EOF
-```
-
-**Download and configure crictl for interacting with container runtime**
-```bash
-  $ wget -q --show-progress --https-only --timestamping \
-    https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.11.1/crictl-v1.11.1-linux-amd64.tar.gz
-  $ tar xvf crictl-v1.11.1-linux-amd64.tar.gz
-  $ chmod +x crictl
-  $ sudo mv crictl /usr/local/bin
-
-  $ cat << EOF | sudo tee /etc/crictl.yaml
-  runtime-endpoint: unix:///var/run/containerd/containerd.sock
-  timeout: 10
-EOF
+$ lsb_release -cs
+$ sudo apt-get -y install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    software-properties-common
+$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+$ sudo apt-key fingerprint 0EBFCD88
+$ sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+$ sudo apt-get -y update
+$ apt-cache madison docker-ce
+$ sudo apt-get install -y docker-ce=18.06.3~ce~3-0~ubuntu
+$ sudo usermod -aG docker $USER
+$ sudo systemctl enable docker
+$ exit  ; and log back 
+$ docker run hello-world
 ```
 
 **Install kubernetes binaries**
 ```bash
-  $ wget -q --show-progress --https-only --timestamping \
-     https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kube-proxy \
-     https://storage.googleapis.com/kubernetes-release/release/v1.11.1/bin/linux/amd64/kubelet
+$ wget -q --show-progress --https-only --timestamping \
+     https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-proxy \
+     https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kubelet
 
-  $ chmod +x kube-proxy kubelet
-  $ sudo  mv kube-proxy kubelet /usr/local/bin/
-  $ sudo mkdir -p /var/lib/kubelet \
-    /var/lib/kube-proxy \
-    /var/lib/kubernetes \
-    /var/run/kubernetes
-  $ sudo mv $(hostname -f)-key.pem $(hostname -f).pem /var/lib/kubelet/
-  $ sudo mv ca.pem /var/lib/kubernetes/
-  $ sudo mv $(hostname -f).kubeconfig /var/lib/kubelet/kubeconfig
-  $ sudo mv kube-proxy.kubeconfig /var/lib/kube-proxy/kubeconfig
+$ chmod +x kube-proxy kubelet
+$ sudo  mv kube-proxy kubelet /usr/local/bin/
+$ sudo mkdir -p /var/lib/kubelet \
+  /var/lib/kube-proxy \
+  /var/lib/kubernetes \
+  /var/run/kubernetes
+$ sudo cp ${HOSTNAME}-key.pem ${HOSTNAME}.pem /var/lib/kubelet/
+$ sudo cp ca.pem /var/lib/kubernetes/
+$ sudo cp ${HOSTNAME}.kubeconfig /var/lib/kubelet/kubeconfig
+$ sudo cp kube-proxy.kubeconfig /var/lib/kube-proxy/kubeconfig
 ```
 
 **Create systemd unit files for above**
 ```bash
-  $ cat << EOF | sudo tee /etc/systemd/system/kubelet.service
+$ cat << EOF | sudo tee /etc/systemd/system/kubelet.service
   [Unit]
   Description=Kubernetes Kubelet
   Documentation=https://github.com/kubernetes/kubernetes
-  After=containerd.service
-  Requires=containerd.service
+  After=docker.service
+  Requires=docker.service
   
   [Service]
   ExecStart=/usr/local/bin/kubelet \\
@@ -678,8 +801,8 @@ EOF
     --cloud-provider= \\
     --cluster-dns=10.32.0.10 \\
     --cluster-domain=cluster.local \\
-    --container-runtime=remote \\
-    --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock \\
+    --container-runtime=docker \\
+    --docker=unix:///var/run/docker.sock \\
     --image-pull-progress-deadline=5m \\
     --kubeconfig=/var/lib/kubelet/kubeconfig \\
     --network-plugin=cni \\
@@ -696,7 +819,7 @@ EOF
   WantedBy=multi-user.target
 EOF
   
-  $ cat << EOF | sudo tee /etc/systemd/system/kube-proxy.service
+$ cat << EOF | sudo tee /etc/systemd/system/kube-proxy.service
   [Unit]
   Description=Kubernetes Kube Proxy
   Documentation=https://github.com/kubernetes/kubernetes
@@ -717,19 +840,13 @@ EOF
 
 **Start and verify the above services**
 ```bash
-  $ sudo systemctl daemon-reload
-  $ sudo systemctl enable containerd kubelet kube-proxy
-  $ sudo systemctl start containerd kubelet kube-proxy
-  $ for service in containerd kubelet kube-proxy; do sudo systemctl status $service; done
+$ sudo systemctl daemon-reload
+$ sudo systemctl enable kubelet kube-proxy
+$ sudo systemctl start kubelet kube-proxy
+$ for service in kubelet kube-proxy; do sudo systemctl status $service; done
 ```
 
-**I had to change containerd component ownerships. Gathering more details on this meanwhile**
-```bash
-  $ sudo chown $(whoami):$(whoami) /run/containerd/containerd.sock
-  $ sudo chown -R $(whoami):$(whoami) /var/run/containerd/io.containerd.runtime.v1.linux
-  $ sudo chown -R $(whoami):$(whoami) /var/run/containerd/runc
-```
-
+??????
 ### Generate kubectl config
 
 **We are back in master.node**
@@ -749,20 +866,25 @@ EOF
   
   $ kubectl config use-context kubernetes
 ```
+??????
 
-### Configure networking
-
-**We'll use weave-net and apply the yaml config**
+### Configure networking with Calico
 ```bash
-$ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')&env.IPALLOC_RANGE=10.150.0.0/16"
+$ curl -O \
+https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
 ```
 
 **Wait till the pods are created**
 ```bash
-  $ kubectl get pod --namespace=kube-system -l name=weave-net -o wide
-  NAME              READY     STATUS    RESTARTS   AGE       IP              NODE
-  weave-net-7kswf   2/2       Running   0          8m        192.168.1.112   node1.home
-  weave-net-jx68d   2/2       Running   0          8m        192.168.1.113   node2.home
+$ kubectl get pod --namespace=kube-system -l k8s-app=calico-node -o wide
+NAME                READY   STATUS    RESTARTS   AGE     IP              NODE         NOMINATED NODE   READINESS GATES
+calico-node-jcfxn   1/1     Running   0          2m32s   192.168.1.113   node2.home   <none>           <none>
+calico-node-t2x7d   1/1     Running   0          2m32s   192.168.1.112   node1.home   <none>           <none>
+
+$ kubectl get nodes -o wide
+NAME         STATUS   ROLES    AGE     VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+node1.home   Ready    <none>   6m50s   v1.13.2   192.168.1.112   <none>        Ubuntu 18.04.2 LTS   4.15.0-47-generic   docker://18.6.3
+node2.home   Ready    <none>   6m50s   v1.13.2   192.168.1.113   <none>        Ubuntu 18.04.2 LTS   4.15.0-47-generic   docker://18.6.3
 ```
 
 ### Configure DNS
@@ -797,12 +919,10 @@ Edited the IP, subnets in respective sections, as shown in below snippet:
 ```bash
 $ kubectl apply -f coredns.yaml
 
-$ kubectl get pod -n kube-system -o wide
-NAME                       READY     STATUS    RESTARTS   AGE       IP              NODE
-coredns-5f7d467445-5xj24   1/1       Running   0          56s       10.150.128.1    node2.home
-coredns-5f7d467445-gnmfd   1/1       Running   0          56s       10.150.0.2      node1.home
-weave-net-7kswf            2/2       Running   0          10m       192.168.1.112   node1.home
-weave-net-jx68d            2/2       Running   0          10m       192.168.1.113   node2.home
+$ kubectl get pod --namespace=kube-system -l k8s-app=coredns -o wide
+NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE         NOMINATED NODE   READINESS GATES
+coredns-7848f666d8-kjxdr   1/1     Running   0          37s   10.150.0.2   node1.home   <none>           <none>
+coredns-7848f666d8-stjxp   1/1     Running   0          37s   10.150.1.2   node2.home   <none>           <none>
 ```
 
 ### Verify DNS
@@ -821,27 +941,29 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
 
 ### Setup nginx ingress
 ```bash
-  $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
-  $ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
 
-  $ kubectl get svc --all-namespaces 
-  NAMESPACE       NAME            TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                      AGE
-  default         kubernetes      ClusterIP   10.32.0.1    <none>        443/TCP                      54m
-  ingress-nginx   ingress-nginx   NodePort    10.32.0.34   <none>        80:32106/TCP,443:30158/TCP   1m
-  kube-system     kube-dns        ClusterIP   10.32.0.10   <none>        53/UDP,53/TCP                5m
+$ kubectl get svc --all-namespaces
+NAMESPACE       NAME            TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)                      AGE
+default         kubernetes      ClusterIP   10.32.0.1     <none>        443/TCP                      56m
+ingress-nginx   ingress-nginx   NodePort    10.32.0.129   <none>        80:30989/TCP,443:30686/TCP   115s
+kube-system     calico-typha    ClusterIP   10.32.0.225   <none>        5473/TCP                     10m
+kube-system     kube-dns        ClusterIP   10.32.0.10    <none>        53/UDP,53/TCP                4m21s
 
-  $ kubectl get deployment --all-namespaces 
-  NAMESPACE       NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-  ingress-nginx   nginx-ingress-controller   1         1         1            1           2m
-  kube-system     coredns                    2         2         2            2           6m
-  
-  $ kubectl get pods --all-namespaces -o wide
-  NAMESPACE       NAME                                       READY     STATUS    RESTARTS   AGE       IP              NODE
-  ingress-nginx   nginx-ingress-controller-87554c57b-tpfd2   1/1       Running   0          2m        10.150.0.3      node1.home
-  kube-system     coredns-5f7d467445-5xj24                   1/1       Running   0          6m        10.150.128.1    node2.home
-  kube-system     coredns-5f7d467445-gnmfd                   1/1       Running   0          6m        10.150.0.2      node1.home
-  kube-system     weave-net-7kswf                            2/2       Running   0          16m       192.168.1.112   node1.home
-  kube-system     weave-net-jx68d                            2/2       Running   0          16m       192.168.1.113   node2.home
+$ kubectl get deployment --all-namespaces
+NAMESPACE       NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
+ingress-nginx   nginx-ingress-controller   1/1     1            1           2m12s
+kube-system     calico-typha               0/0     0            0           10m
+kube-system     coredns                    2/2     2            2           4m26s
+
+$ kubectl get pods --all-namespaces -o wide
+NAMESPACE       NAME                                        READY   STATUS    RESTARTS   AGE    IP              NODE         NOMINATED NODE   READINESS GATES
+ingress-nginx   nginx-ingress-controller-689498bc7c-vw9fx   1/1     Running   0          111s   10.150.1.3      node2.home   <none>           <none>
+kube-system     calico-node-jcfxn                           1/1     Running   0          10m    192.168.1.113   node2.home   <none>           <none>
+kube-system     calico-node-t2x7d                           1/1     Running   0          10m    192.168.1.112   node1.home   <none>           <none>
+kube-system     coredns-7848f666d8-kjxdr                    1/1     Running   0          4m5s   10.150.0.2      node1.home   <none>           <none>
+kube-system     coredns-7848f666d8-stjxp                    1/1     Running   0          4m5s   10.150.1.2      node2.home   <none>           <none>
 ```
 
 *In case we should be required to use an ingress version different from the latest*
@@ -849,6 +971,16 @@ weave-net-jx68d            2/2       Running   0          10m       192.168.1.11
 $ kubectl set image deployment/nginx-ingress-controller -n \
     ingress-nginx nginx-ingress-controller=quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.21.0
 ```
+
+**To be able to pull images from a different registry like gcr.io**
+```bash
+$ kubectl create secret docker-registry mydockercfg \
+  --docker-server="https://gcr.io" \
+  --docker-username=DOCKER_USER \
+  --docker-email=DOCKER_EMAIL \
+  --docker-password=DOCKER_PASSWORD
+```
+
 
 ### Setup rook for persistent volume requirements
 
