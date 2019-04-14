@@ -738,11 +738,11 @@ $ curl --cacert ca.pem https://192.168.1.111:6443/version
 $ sudo apt-get update
 $ sudo apt-get -y install socat conntrack ipset
 $ sudo -i
-\# echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-\# sysctl -p /etc/sysctl.conf
-\# swapoff -a ; edit /etc/fstab as well
-\# ufw disable
-\# exit
+# echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+# sysctl -p /etc/sysctl.conf
+# swapoff -a ; edit /etc/fstab as well
+# ufw disable
+# exit
 
 $ lsb_release -cs
 $ sudo apt-get -y install \
