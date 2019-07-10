@@ -850,6 +850,9 @@ $ for service in kubelet kube-proxy; do sudo systemctl status $service; done
 ```bash
 $ curl -O \
 https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
+$ POD_CIDR="10.150.0.0/16"
+$ sed -i -e "s?192.168.0.0/16?$POD_CIDR?g" calico.yaml
+$ kubectl apply -f calico.yaml
 ```
 
 **Wait till the pods are created**
