@@ -1022,3 +1022,5 @@ $ kubectl get sc
 NAME                        PROVISIONER          AGE
 rook-ceph-block (default)   ceph.rook.io/block   1m
 ```
+
+[Click here for similar procedure on GCE](https://papudatta.github.io/gcloud_unmanaged_kubernetes/)

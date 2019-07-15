@@ -1,4 +1,4 @@
-#Here is the procedure for coming up with a similar cluster in Google cloud ...
+# Here is the procedure for coming up with a similar cluster in Google cloud ...
 
 **Create network, subnet, firewall rules, VMs and external IP**
 ```bash
@@ -1044,20 +1044,4 @@ kubectl create -f storageclass.yaml
 kubectl describe sc
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[Click here for similar procedure on on-premise baremetal](https://papudatta.github.io/baremetal_k8s/)
