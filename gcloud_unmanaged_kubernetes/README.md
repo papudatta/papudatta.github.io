@@ -1,3 +1,5 @@
+#Here is the procedure for coming up with a similar cluster in Google cloud ...
+
 **Create network, subnet, firewall rules, VMs and external IP**
 ```bash
 gcloud config set compute/region us-east1
