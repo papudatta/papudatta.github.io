@@ -78,6 +78,7 @@ Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.2", GitCom
 ```
 
 **We'll now initalize Root CA and subsequently generate:**
+
 1. Certificate for user 'admin'
 2. Certificates for kubelet in worker nodes
 3. Certificate for kube-controller-manager
@@ -85,6 +86,7 @@ Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.2", GitCom
 5. Certificate for kube-scheduler 
 6. Certificate for api server (which in this case are controller-0 and controller-1)
 7. Certificate for service-account (essentially key pair)
+
 ```bash
 cat > ca-config.json <<EOF
   {
@@ -316,6 +318,7 @@ cfssl gencert \
 ```
 
 **Let's distribute the certificates and keys generated above to respective hosts**
+
 ```bash
 for instance in worker-0 worker-1; do
  gcloud compute scp ca.pem ${instance}-key.pem ${instance}.pem ${instance}:~/
@@ -326,11 +329,13 @@ gcloud compute scp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem \
 ```
 
 **We'll need config files (aka kubeconfigs) for:**
+
 1. kubelet
 2. kube-proxy
 3. kube-controller-manager
 4. kube-scheduler
 5. User 'admin'
+
 ```bash
 for instance in worker-0 worker-1; do
   kubectl config set-cluster pilot \
@@ -1030,6 +1035,7 @@ kubectl exec -n rook-ceph -it rook-ceph-tools-5bd44d9bf8-kptq7 /bin/sh
 ```
 
 **Create storage class for block storage**
+
 Reference: https://github.com/rook/rook/blob/master/Documentation/ceph-block.md
 ```bash
 kubectl create -f storageclass.yaml
