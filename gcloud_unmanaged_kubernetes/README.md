@@ -1,5 +1,21 @@
 # Here is the procedure for coming up with a similar cluster in Google cloud ...
 
+### Summary of contents
+
+* Setting up the environment - network, subnet, firewall rules, VMs and external IP
+* Prepare TLS certificates
+* Generate kubeconfig files
+* Data encryption config
+* Prepare ETCD cluster
+* Prepare the master node
+* Prepare the 2 nodes
+* Generate kubectl config
+* Configure networking
+* Configure DNS
+* Verify DNS
+* Setup nginx ingress
+* Setup rook for persistent storage requirements
+
 **Create network, subnet, firewall rules, VMs and external IP**
 ```bash
 gcloud config set compute/region us-east1
