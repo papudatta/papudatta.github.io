@@ -21,8 +21,8 @@
 gcloud config set compute/region us-east1
 gcloud config set compute/zone us-east1-c
 gcloud compute networks create pilot --subnet-mode custom
-gcloud compute networks subnets create knet --network pilot --range 10.240.0.0/24
-gcloud compute firewall-rules create pilot-allow-internal --allow tcp,udp,icmp --network pilot --source-ranges 10.240.0.0/24,10.150.0.0/16
+gcloud compute networks subnets create knet --network pilot --range 10.241.0.0/24
+gcloud compute firewall-rules create pilot-allow-internal --allow tcp,udp,icmp --network pilot --source-ranges 10.241.0.0/24,10.151.0.0/16
 gcloud compute firewall-rules create pilot-allow-external --allow tcp:22,tcp:6443,icmp --network pilot --source-ranges 0.0.0.0/0
 gcloud compute firewall-rules list
 gcloud compute firewall-rules list --filter="network:pilot"
@@ -36,11 +36,11 @@ for i in 0 1; do
     --async \
     --boot-disk-size 200GB \
     --can-ip-forward \
-    --image-family ubuntu-minimal-1604-lts \
+    --image-family ubuntu-minimal-1804-lts \
     --image-project ubuntu-os-cloud \
     --machine-type n1-standard-2 \
-    --metadata pod-cidr=10.150.0.0/16 \
-    --private-network-ip 10.240.0.1${i} \
+    --metadata pod-cidr=10.151.0.0/16 \
+    --private-network-ip 10.241.0.1${i} \
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
     --subnet knet \
     --tags pilot,controller,worker
@@ -51,11 +51,11 @@ for i in 0 1; do
     --async \
     --boot-disk-size 200GB \
     --can-ip-forward \
-    --image-family ubuntu-minimal-1604-lts \
+    --image-family ubuntu-minimal-1804-lts \
     --image-project ubuntu-os-cloud \
     --machine-type n1-standard-2 \
-    --metadata pod-cidr=10.150.0.0/16 \
-    --private-network-ip 10.240.0.2${i} \
+    --metadata pod-cidr=10.151.0.0/16 \
+    --private-network-ip 10.241.0.2${i} \
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
     --subnet knet \
     --tags pilot,worker
@@ -87,12 +87,13 @@ Version: 1.2.0
 Revision: dev
 Runtime: go1.6
 
-wget https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kubectl
+wget wget https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kubectl
 chmod +x kubectl
 sudo mv kubectl /usr/local/bin/
 
 kubectl version --client
-Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.2", GitCommit:"cff46ab41ff0bb44d8584413b598ad8360ec1def", GitTreeState:"clean", BuildDate:"2019-01-10T23:35:51Z", GoVersion:"go1.11.4", Compiler:"gc", Platform:"linux/amd64"}
+Client Version: version.Info{Major:"1", Minor:"15", GitVersion:"v1.15.3", GitCommit:"2d3c76f9091b6bec110a5e63777c332469e0cba2", GitTreeState:"clean", BuildDate:
+"2019-08-19T11:13:54Z", GoVersion:"go1.12.9", Compiler:"gc", Platform:"linux/amd64"}
 ```
 
 **We'll now initalize Root CA and subsequently generate:**
@@ -283,6 +284,9 @@ KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe pilot \
   --region $(gcloud config get-value compute/region) \
   --format 'value(address)')
 
+KUBERNETES_HOSTNAMES=kubernetes,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster,kubernetes.svc.cluster.local
+
+
 cat > kubernetes-csr.json <<EOF
   {
     "CN": "kubernetes",
@@ -305,7 +309,7 @@ cfssl gencert \
   -ca=ca.pem \
   -ca-key=ca-key.pem \
   -config=ca-config.json \
-  -hostname=10.32.0.1,10.240.0.10,10.240.0.11,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,kubernetes.default \
+  -hostname=10.32.0.1,10.240.0.10,10.240.0.11,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,${KUBERNETES_HOSTNAMES} \
   -profile=kubernetes \
   kubernetes-csr.json | cfssljson -bare kubernetes
 
@@ -486,9 +490,9 @@ gcloud compute scp encryption-config.yaml controller-1:~/
 
 **The following must be run on all controllers. NOTE: Fault tolerance can be achieved only by cluster size of 3 or more**
 ```bash
-wget https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz
-tar -xvf etcd-v3.3.9-linux-amd64.tar.gz
-sudo mv etcd-v3.3.9-linux-amd64/etcd* /usr/local/bin/
+wget https://github.com/etcd-io/etcd/releases/download/v3.4.0/etcd-v3.4.0-linux-amd64.tar.gz
+tar -xvf etcd-v3.4.0-linux-amd64.tar.gz
+sudo mv etcd-v3.4.0-linux-amd64/etcd* /usr/local/bin/
 sudo mkdir -p /etc/etcd /var/lib/etcd
 sudo cp ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/
 
@@ -544,10 +548,10 @@ sudo ETCDCTL_API=3 etcdctl member list \
 ```bash
 sudo mkdir -p /etc/kubernetes/config
 wget -q --show-progress --https-only --timestamping \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-apiserver" \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-controller-manager" \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-scheduler" \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kubectl"
+  "https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kube-apiserver" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kube-controller-manager" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kube-scheduler" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kubectl"
 
 chmod +x kube-apiserver kube-controller-manager kube-scheduler kubectl
 sudo mv kube-apiserver kube-controller-manager kube-scheduler kubectl /usr/local/bin/
@@ -575,8 +579,7 @@ ExecStart=/usr/local/bin/kube-apiserver \\
   --authorization-mode=Node,RBAC \\
   --bind-address=0.0.0.0 \\
   --client-ca-file=/var/lib/kubernetes/ca.pem \\
-  --enable-admission-plugins=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
-  --enable-swagger-ui=true \\
+  --enable-admission-plugins=NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
   --etcd-cafile=/var/lib/kubernetes/ca.pem \\
   --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \\
   --etcd-keyfile=/var/lib/kubernetes/kubernetes-key.pem \\
@@ -611,7 +614,7 @@ Documentation=https://github.com/kubernetes/kubernetes
 [Service]
 ExecStart=/usr/local/bin/kube-controller-manager \\
   --address=0.0.0.0 \\
-  --cluster-cidr=10.150.0.0/16 \\
+  --cluster-cidr=10.151.0.0/16 \\
   --allocate-node-cidrs=true \\
   --cluster-name=pilot \\
   --cluster-signing-cert-file=/var/lib/kubernetes/ca.pem \\
@@ -631,6 +634,7 @@ WantedBy=multi-user.target
 EOF
 
 sudo mv kube-scheduler.kubeconfig /var/lib/kubernetes/
+sudo mkdir -p /etc/kubernetes/config/
 
 cat <<EOF | sudo tee /etc/kubernetes/config/kube-scheduler.yaml
 apiVersion: kubescheduler.config.k8s.io/v1alpha1
@@ -816,8 +820,8 @@ docker run hello-world
 **Install kubernetes binaries**
 ```bash
 wget -q --show-progress --https-only --timestamping \
-   https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kube-proxy \
-   https://storage.googleapis.com/kubernetes-release/release/v1.13.2/bin/linux/amd64/kubelet
+  https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kube-proxy \
+  https://storage.googleapis.com/kubernetes-release/release/v1.15.3/bin/linux/amd64/kubelet
 
 chmod +x kube-proxy kubelet
 sudo  mv kube-proxy kubelet /usr/local/bin/
@@ -842,7 +846,6 @@ cat << EOF | sudo tee /etc/systemd/system/kubelet.service
   
   [Service]
   ExecStart=/usr/local/bin/kubelet \\
-    --allow-privileged=true \\
     --anonymous-auth=false \\
     --authorization-mode=Webhook \\
     --client-ca-file=/var/lib/kubernetes/ca.pem \\
@@ -854,7 +857,7 @@ cat << EOF | sudo tee /etc/systemd/system/kubelet.service
     --image-pull-progress-deadline=5m \\
     --kubeconfig=/var/lib/kubelet/kubeconfig \\
     --network-plugin=cni \\
-    --pod-cidr=10.150.0.0/16 \\
+    --pod-cidr=10.151.0.0/16 \\
     --register-node=true \\
     --runtime-request-timeout=15m \\
     --tls-cert-file=/var/lib/kubelet/${HOSTNAME}.pem \\
@@ -874,7 +877,7 @@ cat << EOF | sudo tee /etc/systemd/system/kube-proxy.service
   
   [Service]
   ExecStart=/usr/local/bin/kube-proxy \\
-    --cluster-cidr=10.150.0.0/16 \\
+    --cluster-cidr=10.151.0.0/16 \\
     --kubeconfig=/var/lib/kube-proxy/kubeconfig \\
     --proxy-mode=iptables \\
     --v=2
@@ -929,7 +932,7 @@ https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/host
 
 source <(kubectl completion bash)
 
-POD_CIDR="10.150.0.0/16"
+POD_CIDR="10.151.0.0/16"
 sed -i -e "s?192.168.0.0/16?$POD_CIDR?g" calico.yaml
 kubectl apply -f calico.yaml
 
@@ -943,11 +946,11 @@ worker-1   Ready    <none>   17m   v1.13.2   10.240.0.21   <none>        Ubuntu 
 
 **Had to put these routes on workers as well as subsequent gcp routes to get inter-pod comms working**
 ```bash
-sudo route add -net 10.150.0.0/24 gw 10.240.0.1 dev ens4
-sudo route add -net 10.150.1.0/24 gw 10.240.0.1 dev ens4
+sudo route add -net 10.151.0.0/24 gw 10.241.0.1 dev ens4
+sudo route add -net 10.151.1.0/24 gw 10.241.0.1 dev ens4
 
-gcloud compute routes create kubernetes-route-10-150-0-0-24 --network pilot --next-hop-address 10.240.0.20 --destination-range 10.150.0.0/24
-gcloud compute routes create kubernetes-route-10-150-1-0-24 --network pilot --next-hop-address 10.240.0.21 --destination-range 10.150.1.0/24
+gcloud compute routes create kubernetes-route-10-151-0-0-24 --network pilot --next-hop-address 10.241.0.20 --destination-range 10.151.0.0/24
+gcloud compute routes create kubernetes-route-10-151-1-0-24 --network pilot --next-hop-address 10.241.0.21 --destination-range 10.151.1.0/24
 gcloud compute routes list --filter "network: pilot"
 ```
 
@@ -961,7 +964,7 @@ Corefile:
     .:53 {
         errors
         health
-        kubernetes cluster.local 10.150.0.0/16 10.32.0.0/24 { 
+        kubernetes cluster.local 10.151.0.0/16 10.32.0.0/24 { 
           pods insecure
           upstream
           fallthrough in-addr.arpa ip6.arpa
