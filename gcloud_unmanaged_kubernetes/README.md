@@ -309,7 +309,7 @@ cfssl gencert \
   -ca=ca.pem \
   -ca-key=ca-key.pem \
   -config=ca-config.json \
-  -hostname=10.32.0.1,10.240.0.10,10.240.0.11,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,${KUBERNETES_HOSTNAMES} \
+  -hostname=10.32.0.1,10.241.0.10,10.241.0.11,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,${KUBERNETES_HOSTNAMES} \
   -profile=kubernetes \
   kubernetes-csr.json | cfssljson -bare kubernetes
 
@@ -521,7 +521,7 @@ ExecStart=/usr/local/bin/etcd \\
   --listen-client-urls https://${INTERNAL_IP}:2379,https://127.0.0.1:2379 \\
   --advertise-client-urls https://${INTERNAL_IP}:2379 \\
   --initial-cluster-token etcd-cluster-0 \\
-  --initial-cluster controller-0=https://10.240.0.10:2380,controller-1=https://10.240.0.11:2380 \\
+  --initial-cluster controller-0=https://10.241.0.10:2380,controller-1=https://10.241.0.11:2380 \\
   --initial-cluster-state new \\
   --data-dir=/var/lib/etcd
 Restart=on-failure
@@ -583,7 +583,7 @@ ExecStart=/usr/local/bin/kube-apiserver \\
   --etcd-cafile=/var/lib/kubernetes/ca.pem \\
   --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \\
   --etcd-keyfile=/var/lib/kubernetes/kubernetes-key.pem \\
-  --etcd-servers=https://10.240.0.10:2379,https://10.240.0.11:2379 \\
+  --etcd-servers=https://10.241.0.10:2379,https://10.241.0.11:2379 \\
   --event-ttl=1h \\
   --encryption-provider-config=/var/lib/kubernetes/encryption-config.yaml \\
   --kubelet-certificate-authority=/var/lib/kubernetes/ca.pem \\
@@ -939,9 +939,9 @@ kubectl apply -f calico.yaml
 Verify:
 
 kubectl get nodes -o wide
-NAME       STATUS   ROLES    AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION    CONTAINER-RUNTIME
-worker-0   Ready    <none>   17m   v1.13.2   10.240.0.20   <none>        Ubuntu 16.04.6 LTS   4.15.0-1028-gcp   docker://18.6.3
-worker-1   Ready    <none>   17m   v1.13.2   10.240.0.21   <none>        Ubuntu 16.04.6 LTS   4.15.0-1028-gcp   docker://18.6.3
+NAME       STATUS   ROLES    AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION   CONTAINER-RUNTIME
+worker-0   Ready    <none>   45h   v1.15.3   10.241.0.20   <none>        Ubuntu 18.04.4 LTS   5.0.0-1033-gcp   docker://18.6.3
+worker-1   Ready    <none>   45h   v1.15.3   10.241.0.21   <none>        Ubuntu 18.04.4 LTS   5.0.0-1033-gcp   docker://18.6.3
 ```
 
 **Had to put these routes on workers as well as subsequent gcp routes to get inter-pod comms working**
